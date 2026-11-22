@@ -1,12 +1,12 @@
-import { and, desc, eq, inArray, isNull, lt, notExists, or, type SQL, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, notExists, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "./db/schema.ts";
-import type { LinkKind, RefFlag } from "./db/schema.ts";
+import type { LinkKind, RefFlag, SyncedFields } from "./db/schema.ts";
 import type { Side } from "./side.ts";
 import type { SyncAction } from "./sync/action.ts";
 
-export type { LinkKind, RefFlag, SyncStatus } from "./db/schema.ts";
+export type { LinkKind, RefFlag, SyncedFields, SyncStatus } from "./db/schema.ts";
 export type SyncRow = typeof schema.sync.$inferSelect;
 export type Link = typeof schema.link.$inferSelect;
 export type RefRow = typeof schema.ref.$inferSelect;
@@ -16,8 +16,11 @@ export type ClaimedJob = { id: number; syncId: string; action: SyncAction; claim
 
 export type Store = {
   findLink(syncId: string, kind: LinkKind, side: Side, id: string): Promise<Link | null>;
-  saveLink(link: Omit<Link, "updatedAt">): Promise<void>;
+  /** `synced` is what both sides agree on right after the write; left out, nothing is known yet. */
+  saveLink(link: Omit<Link, "updatedAt" | "synced"> & { synced?: SyncedFields | null }): Promise<void>;
   deleteLink(syncId: string, kind: LinkKind, side: Side, id: string): Promise<void>;
+  /** How many items of each kind are paired; kinds with none are left out. */
+  countLinks(syncId: string): Promise<Partial<Record<LinkKind, number>>>;
   getRef(syncId: string, name: string): Promise<RefRow | null>;
   listRefs(syncId: string): Promise<RefRow[]>;
   /** null deletes the row; always clears `diverged`. */
@@ -66,11 +69,15 @@ export function createStore(db: PostgresJsDatabase<typeof schema>): Store {
         await tx
           .delete(link)
           .where(and(eq(link.syncId, next.syncId), eq(link.kind, next.kind), or(eq(link.ghostId, next.ghostId), eq(link.githubId, next.githubId))));
-        await tx.insert(link).values(next);
+        await tx.insert(link).values({ ...next, synced: next.synced ?? null });
       });
     },
     async deleteLink(syncId, kind, side, id) {
       await db.delete(link).where(linkOf(syncId, kind, side, id));
+    },
+    async countLinks(syncId) {
+      const rows = await db.select({ kind: link.kind, count: count() }).from(link).where(eq(link.syncId, syncId)).groupBy(link.kind);
+      return Object.fromEntries(rows.map((row) => [row.kind, row.count]));
     },
     async getRef(syncId, name) {
       const [row] = await db.select().from(ref).where(refOf(syncId, name));

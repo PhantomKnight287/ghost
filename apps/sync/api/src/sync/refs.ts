@@ -64,6 +64,9 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
   const pushed = await ctx.git.pushRef(ctx.dir, remotes[action.to], name, action.sha, action.expected);
   if (pushed.ok) {
     await ctx.store.setBase(ctx.sync.id, name, action.sha);
+    const verb = action.sha === null ? "Deleted" : action.expected === null ? "Created" : "Moved";
+    const summary = `${verb} ${name.replace(/^refs\/(heads|tags)\//, "")}${action.sha === null ? "" : ` at ${short(action.sha)}`}`;
+    await ctx.store.addActivity({ syncId: ctx.sync.id, direction: action.to, kind: "refs", summary, error: null });
     return "done";
   }
   if (pushed.reason === "lease") return "lease";
@@ -98,7 +101,7 @@ async function flag(ctx: SyncContext, name: string, current: RefFlag | null, nex
 
 /** Comments on both halves of every linked pull request headed by `branch`, skipping targets in `state.posted`. */
 async function notifyPulls(ctx: SyncContext, branch: string, state: RefFlag, posted: (target: string) => Promise<void>) {
-  const body = `sync.ghost stopped syncing \`${branch}\`: Ghost is at ${short(state.ghost)} and GitHub at ${short(state.github)} (${state.reason}). Make the two sides agree, for example by merging one into the other, and syncing resumes.`;
+  const body = `Ghost Sync stopped syncing \`${branch}\`: Ghost is at ${short(state.ghost)} and GitHub at ${short(state.github)} (${state.reason}). Make the two sides agree, for example by merging one into the other, and syncing resumes.`;
   const { owner } = ctx.repo.ghost;
   // Linked pull requests exist on both sides, so Ghost's list finds every pair.
   const pulls = await ctx.rest.ghost.request<{ number: number }[]>("GET", `/repos/${owner}/${ctx.repo.ghost.name}/pulls?state=open&head=${owner}:${branch}`);

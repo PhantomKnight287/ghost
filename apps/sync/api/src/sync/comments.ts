@@ -1,9 +1,10 @@
 import { other, SIDE_NAME, type Side } from "../side.ts";
+import { readMarker } from "../format.ts";
 import { repoPath, type SyncContext } from "./context.ts";
 import { copiedBody, ghostKeyOfNodeId, syncIssue } from "./issues.ts";
-import { createOnce, isNotFound, skipped } from "./write.ts";
+import { createOnce, done, followBody, isNotFound, skipped } from "./write.ts";
 
-export type Comment = { id: number; node_id: string; body: string | null; user: { login: string } };
+export type Comment = { id: number; node_id: string; body: string | null; user: { login: string }; updated_at?: string };
 
 /** The counterpart issue or pull request number of `number` on `from`, syncing the issue first when it has no link yet. */
 async function counterpartOf(ctx: SyncContext, from: Side, number: number) {
@@ -41,8 +42,8 @@ export async function syncComment(ctx: SyncContext, from: Side, issueNumber: num
   const link = await ctx.store.findLink(ctx.sync.id, "comment", from, key);
   const body = copiedBody(ctx, from, source.user.login, source.body);
   if (link) {
-    const target = to === "ghost" ? link.ghostRestId : link.githubId;
-    await ctx.rest[to].request("PATCH", `${repoPath(ctx, to)}/issues/comments/${target}`, { body });
+    const targetPath = `${repoPath(ctx, to)}/issues/comments/${to === "ghost" ? link.ghostRestId : link.githubId}`;
+    await followBody(ctx, to, "comment", link, targetPath, source, body, `${source.user.login}'s comment on ${SIDE_NAME[from]} #${issueNumber}`);
     return;
   }
   if (source.user.login === ctx.bot[from]) return;
@@ -60,7 +61,8 @@ export async function syncComment(ctx: SyncContext, from: Side, issueNumber: num
     to === "ghost"
       ? { ghostId: ghostKeyOfNodeId(created.node_id), ghostRestId: String(created.id), githubId: key }
       : { ghostId: key, ghostRestId: String(source.id), githubId: String(created.id) };
-  await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ...ids });
+  await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ...ids, synced: { body: readMarker(source.body ?? "").body } });
+  await done(ctx, to, "comment", `Copied ${source.user.login}'s comment on ${SIDE_NAME[from]} #${issueNumber}`);
 }
 
 export async function deleteComment(ctx: SyncContext, from: Side, key: string) {
@@ -70,6 +72,7 @@ export async function deleteComment(ctx: SyncContext, from: Side, key: string) {
   const target = to === "ghost" ? link.ghostRestId : link.githubId;
   try {
     await ctx.rest[to].request("DELETE", `${repoPath(ctx, to)}/issues/comments/${target}`);
+    await done(ctx, to, "comment", `Deleted a comment deleted on ${SIDE_NAME[from]}`);
   } catch (error) {
     if (!isNotFound(error)) throw error;
   }

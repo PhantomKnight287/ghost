@@ -20,13 +20,18 @@ export function syncRoutes(deps: RouteDeps) {
 
   app.get("/api/syncs/:id", async (c) => {
     const id = c.req.param("id");
-    const flagged = (await deps.store.listRefs(id)).flatMap((ref) => (ref.diverged ? [{ name: ref.name, ghost: ref.diverged.ghost, github: ref.diverged.github, reason: ref.diverged.reason }] : []));
+    const refs = await deps.store.listRefs(id);
+    const flagged = refs.flatMap((ref) => (ref.diverged ? [{ name: ref.name, ghost: ref.diverged.ghost, github: ref.diverged.github, reason: ref.diverged.reason }] : []));
+    const counts = { refs: refs.filter((ref) => ref.baseSha && !ref.diverged).length, ...(await deps.store.countLinks(id)) };
     // The install links let the page offer a fix when an app no longer covers a repository.
-    return c.json({ sync: await deps.store.getSync(id), flagged, activity: await deps.store.listActivity(id, RECENT_ACTIVITY), installUrl: deps.installUrl });
+    return c.json({ sync: await deps.store.getSync(id), flagged, counts, activity: await deps.store.listActivity(id, RECENT_ACTIVITY), installUrl: deps.installUrl, webUrl: deps.webUrl });
   });
+
+  const log = (syncId: string, summary: string) => deps.store.addActivity({ syncId, direction: null, kind: "sync", summary, error: null });
 
   app.post("/api/syncs/:id/pause", async (c) => {
     await deps.store.updateSync(c.req.param("id"), { status: "paused" });
+    await log(c.req.param("id"), "Paused");
     return c.json({ ok: true });
   });
 
@@ -34,11 +39,13 @@ export function syncRoutes(deps: RouteDeps) {
   app.post("/api/syncs/:id/resume", async (c) => {
     const id = c.req.param("id");
     await deps.store.updateSync(id, { status: "active", disconnectReason: null, lastError: null });
+    await log(id, "Resumed; catching up with both sides");
     await deps.reconcileNow(id);
     return c.json({ ok: true });
   });
 
   app.post("/api/syncs/:id/resync", async (c) => {
+    await log(c.req.param("id"), "Resync requested");
     await deps.reconcileNow(c.req.param("id"));
     return c.json({ ok: true });
   });

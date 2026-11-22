@@ -1,7 +1,7 @@
 import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { repoPath, type SyncContext } from "./context.ts";
-import { createOnce, isNotFound, skipped } from "./write.ts";
+import { createOnce, done, isNotFound, skipped } from "./write.ts";
 
 type CheckRun = {
   id: number;
@@ -58,10 +58,14 @@ export async function syncCheckRun(ctx: SyncContext, from: Side, id: string) {
   const fields = copyOf(run);
   const link = await ctx.store.findLink(ctx.sync.id, "check_run", from, id);
   if (link) {
-    const target = to === "ghost" ? link.ghostId : link.githubId;
+    const targetPath = `${repoPath(ctx, to)}/check-runs/${to === "ghost" ? link.ghostId : link.githubId}`;
+    // Copies only ever flow from the original run, so comparing with the copy is enough to tell whether anything changed.
+    const current = copyOf({ ...(await ctx.rest[to].request<CheckRun>("GET", targetPath)), html_url: run.html_url });
+    if (JSON.stringify(current) === JSON.stringify(fields)) return;
     // A run cannot move to another commit, so the update leaves `head_sha` out.
     const { head_sha: _, ...update } = fields;
-    await ctx.rest[to].request("PATCH", `${repoPath(ctx, to)}/check-runs/${target}`, update);
+    await ctx.rest[to].request("PATCH", targetPath, update);
+    await done(ctx, to, "check_run", `Updated check run ${run.name} on ${run.head_sha.slice(0, 7)}: ${run.conclusion ?? run.status}`);
     return;
   }
   // The commit reaches the other side with its branch; reconcile copies the run once it has.
@@ -73,6 +77,7 @@ export async function syncCheckRun(ctx: SyncContext, from: Side, id: string) {
   });
   const ids = from === "ghost" ? { ghostId: id, githubId: String(created.id) } : { ghostId: String(created.id), githubId: id };
   await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "check_run", ghostRestId: ids.ghostId, ...ids });
+  await done(ctx, to, "check_run", `Copied check run ${run.name} on ${run.head_sha.slice(0, 7)}`);
 }
 
 /** Opens the "Sync with GitHub" check on a Ghost commit and returns its run id. */
@@ -90,4 +95,5 @@ export async function finishSyncCheck(ctx: SyncContext, runId: string, outcome: 
     ? { title: "In sync with GitHub", summary: "This commit's branches agree on Ghost and GitHub." }
     : { title: "Not in sync with GitHub", summary: outcome.reason };
   await ctx.rest.ghost.request("PATCH", `${repoPath(ctx, "ghost")}/check-runs/${runId}`, { status: "completed", conclusion: outcome.ok ? "success" : "failure", output });
+  await done(ctx, "ghost", "check_run", outcome.ok ? `${SYNC_CHECK_NAME} passed` : `${SYNC_CHECK_NAME} failed: ${outcome.reason}`);
 }

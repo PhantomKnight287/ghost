@@ -119,7 +119,8 @@ describe("syncRefs", () => {
     await syncRefs(ctx);
     await syncRefs(ctx);
     expect([...writes(ctx.ghost), ...writes(ctx.github)]).toHaveLength(2);
-    expect(ctx.store.activity.filter((a) => a.kind === "refs")).toHaveLength(1);
+    expect(ctx.store.activity.filter((a) => a.kind === "refs" && a.error !== null)).toHaveLength(1);
+    expect(ctx.store.activity).toContainEqual(expect.objectContaining({ kind: "refs", direction: "github", summary: expect.stringMatching(/^(Created|Moved) dev at d/), error: null }));
   });
 
   test("a notice that failed halfway posts only the missing comment on the retry", async () => {

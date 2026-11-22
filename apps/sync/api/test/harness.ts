@@ -120,7 +120,7 @@ export async function startWorld(file: string) {
       await server.queue.idle();
       if (deliveries.length === 0) return;
     }
-    throw new Error(`sync.ghost did not settle in ${ROUNDS} rounds: the sides are echoing each other`);
+    throw new Error(`Ghost Sync did not settle in ${ROUNDS} rounds: the sides are echoing each other`);
   }
 
   /** Pairs two repositories through the API, as the web does, and lets the first sync finish. */

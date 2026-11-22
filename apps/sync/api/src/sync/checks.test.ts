@@ -39,10 +39,22 @@ describe("syncCheckRun", () => {
   });
 
   test("linked: the copy is updated in place", async () => {
-    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun({ conclusion: "failure" }) }, ghost: { "PATCH /repos/acme/app/check-runs/55": {} } });
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun({ conclusion: "failure" }) }, ghost: { "GET /repos/acme/app/check-runs/55": actionsRun({ id: 55, status: "in_progress", conclusion: null, html_url: "https://ghost.example.com/acme/app/checks/55", app: { slug: "ghost-sync" } }), "PATCH /repos/acme/app/check-runs/55": {} } });
     await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "check_run", ghostId: "55", ghostRestId: "55", githubId: "1001" });
     await syncCheckRun(ctx, "github", "1001");
     expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/check-runs/55", body: expect.objectContaining({ conclusion: "failure", status: "completed" }) }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Updated check run CI / test on h1: failure"]);
+  });
+
+  test("linked: a copy already matching its run is not written", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun() },
+      ghost: { "GET /repos/acme/app/check-runs/55": actionsRun({ id: 55, html_url: "https://ghost.example.com/acme/app/checks/55", app: { slug: "ghost-sync" } }) },
+    });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "check_run", ghostId: "55", ghostRestId: "55", githubId: "1001" });
+    await syncCheckRun(ctx, "github", "1001");
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect(ctx.store.activity).toEqual([]);
   });
 
   test("Ghost to GitHub the same way", async () => {
@@ -79,12 +91,14 @@ describe("the sync check", () => {
     const ctx = testContext({ ghost: { "PATCH /repos/acme/app/check-runs/77": {} } });
     await finishSyncCheck(ctx, "77", { ok: true });
     expect(writes(ctx.ghost)[0]?.body).toMatchObject({ status: "completed", conclusion: "success" });
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Sync with GitHub passed"]);
   });
 
   test("finishes failure with the reason", async () => {
     const ctx = testContext({ ghost: { "PATCH /repos/acme/app/check-runs/77": {} } });
     await finishSyncCheck(ctx, "77", { ok: false, reason: "refs/heads/main diverged" });
     expect(writes(ctx.ghost)[0]?.body).toMatchObject({ status: "completed", conclusion: "failure", output: expect.objectContaining({ summary: "refs/heads/main diverged" }) });
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Sync with GitHub failed: refs/heads/main diverged"]);
   });
 });
 
@@ -92,7 +106,7 @@ describe("check run edge cases", () => {
   const listed = (runs: unknown[]) => ({ "GET /repos/acme/app/commits/h1/check-runs?check_name=CI+%2F+test": { total_count: runs.length, check_runs: runs } });
 
   test("an update never tries to move the run to another commit", async () => {
-    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun() }, ghost: { "PATCH /repos/acme/app/check-runs/55": {} } });
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun() }, ghost: { "GET /repos/acme/app/check-runs/55": actionsRun({ id: 55, status: "in_progress", conclusion: null, html_url: "https://ghost.example.com/acme/app/checks/55", app: { slug: "ghost-sync" } }), "PATCH /repos/acme/app/check-runs/55": {} } });
     await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "check_run", ghostId: "55", ghostRestId: "55", githubId: "1001" });
     await syncCheckRun(ctx, "github", "1001");
     expect(writes(ctx.ghost)[0]?.body).not.toHaveProperty("head_sha");

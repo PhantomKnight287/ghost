@@ -51,6 +51,13 @@ function contract(make: () => Promise<Subject>) {
     expect(await store.findLink(sync.id, "issue", "github", "5")).toBeNull();
   });
 
+  test("countLinks counts each kind on its own sync", async () => {
+    await store.saveLink({ syncId: sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
+    await store.saveLink({ syncId: sync.id, kind: "issue", ghostId: "13", ghostRestId: null, githubId: "6" });
+    await store.saveLink({ syncId: sync.id, kind: "pull", ghostId: "14", ghostRestId: null, githubId: "7" });
+    expect(await store.countLinks(sync.id)).toEqual({ issue: 2, pull: 1 });
+  });
+
   test("deleteLink", async () => {
     await store.saveLink({ syncId: sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
     await store.deleteLink(sync.id, "issue", "github", "5");

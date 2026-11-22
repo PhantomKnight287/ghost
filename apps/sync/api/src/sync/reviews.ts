@@ -1,10 +1,10 @@
-import { verdictText, withMarker } from "../format.ts";
+import { readMarker, verdictText, withMarker } from "../format.ts";
 import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { repoPath, type SyncContext } from "./context.ts";
 import { copiedBody, ghostKeyOfNodeId } from "./issues.ts";
 import { syncPull } from "./pulls.ts";
-import { createOnce, isNotFound, skipped } from "./write.ts";
+import { createOnce, done, followBody, isNotFound, skipped } from "./write.ts";
 
 export type Review = { id: number; node_id: string; state: string; body: string | null; user: { login: string }; commit_id: string };
 export type ReviewComment = {
@@ -19,6 +19,7 @@ export type ReviewComment = {
   user: { login: string };
   commit_id: string;
   in_reply_to_id?: number | null;
+  updated_at?: string;
 };
 
 const VERDICTS = ["APPROVED", "CHANGES_REQUESTED", "COMMENTED"] as const;
@@ -81,7 +82,7 @@ async function readReviewComment(ctx: SyncContext, from: Side, pullNumber: numbe
 }
 
 /**
- * Copies review `key` (Ghost UUID or GitHub id) as a comment-only review stating its verdict: sync.ghost never approves or blocks on anyone's behalf. Line comments already copied on their own are left out, so the review's and its comments' webhooks may arrive in either order.
+ * Copies review `key` (Ghost UUID or GitHub id) as a comment-only review stating its verdict: Ghost Sync never approves or blocks on anyone's behalf. Line comments already copied on their own are left out, so the review's and its comments' webhooks may arrive in either order.
  */
 export async function syncReview(ctx: SyncContext, from: Side, pullNumber: number, key: string, known?: Review) {
   const to = other(from);
@@ -133,6 +134,7 @@ export async function syncReview(ctx: SyncContext, from: Side, pullNumber: numbe
     separately = roots;
   }
   await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review", ...linkIds(from, key, review, to, created) });
+  await done(ctx, to, "review", `Copied ${author}'s review on ${SIDE_NAME[from]} #${pullNumber}`);
 
   if (separately.length === 0 && roots.length > 0) {
     const unused = await all(ctx.rest[to].paginate<ReviewComment>(`${reviewsPath}/${created.id}/comments`));
@@ -160,7 +162,8 @@ export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber
   const body = copiedBody(ctx, from, comment.user.login, comment.body);
   const link = await ctx.store.findLink(ctx.sync.id, "review_comment", from, key);
   if (link) {
-    await ctx.rest[to].request("PATCH", `${repoPath(ctx, to)}/pulls/comments/${restIdOn(to, link)}`, { body });
+    const targetPath = `${repoPath(ctx, to)}/pulls/comments/${restIdOn(to, link)}`;
+    await followBody(ctx, to, "review_comment", link, targetPath, comment, body, `${comment.user.login}'s comment on ${comment.path} in ${SIDE_NAME[from]} #${pullNumber}`);
     return;
   }
   if (comment.user.login === ctx.bot[from]) return;
@@ -188,7 +191,8 @@ export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber
       for await (const c of ctx.rest[to].paginate<ReviewComment>(commentsPath)) if (c.user.login === ctx.bot[to] && c.body === body) return c;
       return undefined;
     });
-    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ...linkIds(from, key, comment, to, created) });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ...linkIds(from, key, comment, to, created), synced: { body: readMarker(comment.body ?? "").body } });
+    await done(ctx, to, "review_comment", `Copied ${comment.user.login}'s comment on ${comment.path} in ${SIDE_NAME[from]} #${pullNumber}`);
   } catch (error) {
     // 422: the line is not part of the copy's diff, for instance after a force-push on one side.
     if (!(error instanceof RestError) || error.status !== 422) throw error;
@@ -202,6 +206,7 @@ export async function deleteReviewComment(ctx: SyncContext, from: Side, key: str
   const to = other(from);
   try {
     await ctx.rest[to].request("DELETE", `${repoPath(ctx, to)}/pulls/comments/${restIdOn(to, link)}`);
+    await done(ctx, to, "review_comment", `Deleted a review comment deleted on ${SIDE_NAME[from]}`);
   } catch (error) {
     if (!isNotFound(error)) throw error;
   }

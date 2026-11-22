@@ -48,7 +48,7 @@ describe("Ghost events", () => {
     expect(handleGhost("push", { ...ghost("push", { ref: "refs/heads/main" }), sender: null })).toMatchObject({ actor: null });
   });
 
-  test("events sync.ghost does not copy", () => {
+  test("events Ghost Sync does not copy", () => {
     for (const event of ["issue.assigned", "issue.unassigned", "pull_request.review_requested", "release.created", "star.created", "ping"]) {
       expect(handleGhost(event, ghost(event, { issue: { number: 1 } }))).toBeNull();
     }
@@ -97,7 +97,7 @@ describe("GitHub events", () => {
     expect(handleGitHub("create", github(undefined, { ref: "main", ref_type: "repository" }))).toBeNull();
   });
 
-  test("events sync.ghost does not copy", () => {
+  test("events Ghost Sync does not copy", () => {
     expect(handleGitHub("pull_request", github("assigned", { number: 8 }))).toBeNull();
     expect(handleGitHub("pull_request_review", github("dismissed", { pull_request: { number: 8 }, review: { id: 77 } }))).toBeNull();
     expect(handleGitHub("issues", github("assigned", { issue: { number: 5 } }))).toBeNull();

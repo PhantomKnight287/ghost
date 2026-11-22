@@ -54,6 +54,7 @@ describe("reconcileSync", () => {
     const sync = await ctx.store.getSync(ctx.sync.id);
     expect(sync?.status).toBe("active");
     expect(sync?.lastReconciledAt?.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(ctx.store.activity).toContainEqual(expect.objectContaining({ kind: "reconcile", summary: "First sync finished", error: null }));
   });
 
   test("a second first-run over the same repositories creates nothing new", async () => {
@@ -133,6 +134,7 @@ describe("reconcileSync", () => {
     });
     await reconcileSync(ctx, owner);
     expect((await ctx.store.getSync(ctx.sync.id))?.status).toBe("active");
+    expect(ctx.store.activity).toEqual([]);
   });
 
   test("a refused token disconnects the sync, naming the side", async () => {

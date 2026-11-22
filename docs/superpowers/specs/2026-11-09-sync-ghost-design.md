@@ -1,4 +1,4 @@
-# sync.ghost
+# Ghost Sync
 
 A hosted service at `sync.<ghost domain>` that keeps a Ghost repository and a GitHub repository in sync, both ways: code, pull requests, reviews, issues, comments and labels. Two uses: tools that only exist on GitHub (CodeRabbit and other review bots, GitHub Actions) work on Ghost repositories, with their output and conversation coming back to Ghost; and a team moves from GitHub to Ghost gradually, working on either side while it does.
 
@@ -6,13 +6,13 @@ This replaces `2026-10-14-github-sync-bot-design.md` (on branch `feat/github-syn
 
 ## Intent
 
-Any Ghost user signs in to sync.ghost with Ghost, connects GitHub, picks a Ghost repository and a GitHub repository (an existing one, or a new one sync.ghost creates), and sync starts. People keep working on whichever side they like; work done on one side appears on the other. A bot installed on the GitHub mirror reviews pull requests there; its reviews and comments appear on the Ghost pull request, and replies written on Ghost reach the bot on GitHub, so `@coderabbitai explain this` works entirely from Ghost. GitHub's check runs appear on the Ghost commit, so Ghost's tick matches GitHub's.
+Any Ghost user signs in to Ghost Sync with Ghost, connects GitHub, picks a Ghost repository and a GitHub repository (an existing one, or a new one Ghost Sync creates), and sync starts. People keep working on whichever side they like; work done on one side appears on the other. A bot installed on the GitHub mirror reviews pull requests there; its reviews and comments appear on the Ghost pull request, and replies written on Ghost reach the bot on GitHub, so `@coderabbitai explain this` works entirely from Ghost. GitHub's check runs appear on the Ghost commit, so Ghost's tick matches GitHub's.
 
-sync.ghost is an **outside customer of Ghost** (user decision, 2026-11-09). It has its own services, its own database and its own deploy, and talks to Ghost only through Ghost's public API as a Ghost App, exactly as CodeRabbit would. It shares no tables, no code paths and no secrets with `apps/api`. It dogfoods Ghost Apps (`2026-10-25-ghost-apps-design.md`) and the Checks API (`2026-11-06-checks-api-design.md`).
+Ghost Sync is an **outside customer of Ghost** (user decision, 2026-11-09). It has its own services, its own database and its own deploy, and talks to Ghost only through Ghost's public API as a Ghost App, exactly as CodeRabbit would. It shares no tables, no code paths and no secrets with `apps/api`. It dogfoods Ghost Apps (`2026-10-25-ghost-apps-design.md`) and the Checks API (`2026-11-06-checks-api-design.md`).
 
 ## Goals
 
-1. Sign in with Ghost. A Ghost account is a sync.ghost account.
+1. Sign in with Ghost. A Ghost account is a Ghost Sync account.
 2. Connect a GitHub account to it.
 3. Create a sync: one Ghost repository paired with one GitHub repository, existing or newly created (private or public, the user chooses).
 4. Sync runs continuously from webhooks on both sides, with a periodic reconcile pass for missed events and the initial backfill.
@@ -34,18 +34,18 @@ sync.ghost is an **outside customer of Ghost** (user decision, 2026-11-09). It h
 These would make the work a failure even if it technically works:
 
 - **Reviews gain power across sides.** A review from one side never approves or blocks a pull request on the other; it lands as a comment-only review. A copied GitHub check is just a check run; whether a ruleset requires it is the Ghost repository owner's choice.
-- **Code leaks.** A private Ghost repository reaches a GitHub repository only because its owner picked that repository. sync.ghost never makes a repository public on its own; a new repository is created with the visibility the user chose, private selected by default.
-- **sync.ghost destroys anything on its own judgement** (user decision, 2026-11-09). It never force-pushes, deletes a branch or tag, or discards commits because it decided to. It only copies a destructive change a person made on one side (a force-push, a branch deletion, a comment or issue deletion), and only when the other side has nothing that copy would lose. When it cannot tell, it leaves both sides alone and flags it.
-- **Acting on repositories the user cannot reach.** A user can only create a sync when they are an **admin of both repositories** (user decision, 2026-11-09) and both app installations cover them. sync.ghost checks this with the user's own tokens when the sync is created, and again on every reconcile; a sync whose creator lost admin on either side, or deleted their account, stops (user decision, 2026-11-09).
+- **Code leaks.** A private Ghost repository reaches a GitHub repository only because its owner picked that repository. Ghost Sync never makes a repository public on its own; a new repository is created with the visibility the user chose, private selected by default.
+- **Ghost Sync destroys anything on its own judgement** (user decision, 2026-11-09). It never force-pushes, deletes a branch or tag, or discards commits because it decided to. It only copies a destructive change a person made on one side (a force-push, a branch deletion, a comment or issue deletion), and only when the other side has nothing that copy would lose. When it cannot tell, it leaves both sides alone and flags it.
+- **Acting on repositories the user cannot reach.** A user can only create a sync when they are an **admin of both repositories** (user decision, 2026-11-09) and both app installations cover them. Ghost Sync checks this with the user's own tokens when the sync is created, and again on every reconcile; a sync whose creator lost admin on either side, or deleted their account, stops (user decision, 2026-11-09).
 - **Tokens leak.** Tokens never appear in argv, a git remote URL, a log line, an activity entry or an API response to the browser. Stored OAuth tokens are encrypted at rest.
-- **Echo loops.** An event caused by sync.ghost's own bot is never mirrored back.
+- **Echo loops.** An event caused by Ghost Sync's own bot is never mirrored back.
 
 ## Constraints
 
 - Lives in this monorepo under nested workspaces (user decision, 2026-11-09). Add `"apps/sync/*"` to the root `package.json` `workspaces`. `apps/sync` itself has no `package.json`.
   - `apps/sync/api` — `@ghost/sync-api`: Bun, Hono, better-auth (user decision).
   - `apps/sync/web` — `@ghost/sync-web`: TanStack Start (user decision).
-  - `apps/sync/db` — `@ghost/sync-db`: drizzle schema and migrations for sync.ghost's own Postgres, separate from `packages/db` (Claude's call; the user did not object). Migrations are generated, never hand-written, as in `packages/db`.
+  - `apps/sync/db` — `@ghost/sync-db`: drizzle schema and migrations for Ghost Sync's own Postgres, separate from `packages/db` (Claude's call; the user did not object). Migrations are generated, never hand-written, as in `packages/db`.
 - Follow `docs/code-standards.md`.
 - Its own Postgres. Deployed on Railway, like the rest of Ghost (`docs/deploy-railway.md`), at `sync.<ghost domain>` for the web and an API domain of the builder's choosing. One API instance (see Ordering).
 - Ghost's GitHub-compatible REST is at `<GHOST_API_URL>/api/v3`. GitHub and Ghost both speak GitHub REST, so one REST client serves both sides (unchanged from the old design).
@@ -105,7 +105,7 @@ Who can do what: a signed-in user who is an admin of both repositories, both cov
 
 ### Code (user decision, 2026-11-09)
 
-Branches and tags sync both ways. sync.ghost keeps, per sync and ref, the **base**: the commit both sides last agreed on. For each ref it compares Ghost's commit, GitHub's commit and the base:
+Branches and tags sync both ways. Ghost Sync keeps, per sync and ref, the **base**: the commit both sides last agreed on. For each ref it compares Ghost's commit, GitHub's commit and the base:
 
 | Ghost | GitHub | Action |
 | --- | --- | --- |
@@ -117,17 +117,17 @@ Branches and tags sync both ways. sync.ghost keeps, per sync and ref, the **base
 | Changed | Changed, neither contains the other, or one deleted and the other moved | **Diverged.** Touch neither side. Flag it (below). |
 | Exists | Missing, no base (new ref) | Create it on the other side. Same the other way. |
 
-- Every push names the commit it expects to replace (`--force-with-lease=<ref>:<expected>`, or the equivalent for a create or delete), so a person pushing at the same moment makes sync.ghost's push fail rather than be overwritten. A failed lease re-runs the comparison.
+- Every push names the commit it expects to replace (`--force-with-lease=<ref>:<expected>`, or the equivalent for a create or delete), so a person pushing at the same moment makes Ghost Sync's push fail rather than be overwritten. A failed lease re-runs the comparison.
 - Tags follow the same table; a tag moved or deleted by a person is copied only when the other side still has the base.
 - **Diverged** shows on the sync page with both commits, fails the "Sync" check on the Ghost commit (see Checks), and posts one comment on a synced pull request whose head it is. It clears on its own when a person makes the two sides agree (for example by merging one into the other and pushing), at which point the table applies again.
-- A push rejected by branch protection or a ruleset on either side is flagged the same way, naming the rule. sync.ghost never asks for a bypass; the README explains that the owner may add the app to bypass lists if they want protected branches synced.
+- A push rejected by branch protection or a ruleset on either side is flagged the same way, naming the rule. Ghost Sync never asks for a bypass; the README explains that the owner may add the app to bypass lists if they want protected branches synced.
 
 ### Pull requests (user decision, 2026-11-09)
 
 Pull requests sync both ways, whichever side they are opened on. The bot opens the counterpart with the same head, base, title, body (attributed) and draft state, after the head and base refs are synced. Edits, closing, reopening, ready for review and converting to draft follow both ways.
 
 - **Merged on one side:** the base branch's new commits reach the other side through Code. The counterpart is then marked merged if that host sees it as merged (a plain merge), otherwise the bot closes it with a "Merged on Ghost" / "Merged on GitHub" comment. If the base has diverged, the counterpart stays open and the divergence is flagged.
-- **Pull requests from forks on Ghost:** the head is fetched from the base repository's `refs/pull/<number>/head` and pushed to `ghost-pr/<number>` on GitHub, which heads the GitHub pull request. This branch belongs to sync.ghost: it follows the fork's head exactly (including force-pushes) and is deleted when the pull request closes (Claude's call; the user confirmed fork pull requests are mirrored).
+- **Pull requests from forks on Ghost:** the head is fetched from the base repository's `refs/pull/<number>/head` and pushed to `ghost-pr/<number>` on GitHub, which heads the GitHub pull request. This branch belongs to Ghost Sync: it follows the fork's head exactly (including force-pushes) and is deleted when the pull request closes (Claude's call; the user confirmed fork pull requests are mirrored).
 - **Pull requests from forks on GitHub:** not synced (user decision, 2026-11-09, for the first sync; Claude's call to keep it for later ones, since on a public mirror it would push any stranger's code into the Ghost repository). They are listed as skipped in activity.
 
 ### Reviews
@@ -136,8 +136,8 @@ Both ways, never with power: a review from one side lands on the other as a comm
 
 ### Checks
 
-- Check runs sync both ways (user decision, 2026-11-09): a run on a synced commit on one side is copied to the same commit on the other, same name, status, conclusion, title and summary, `details_url` pointing at the original run, updated in place as the original changes. A copied run appears under sync.ghost's app on the other side, not the original app. Runs created by sync.ghost itself (copies and the "Sync with GitHub" run) are never copied back.
-- **The "Sync with GitHub" check** (from the Checks design, 2026-11-06): on `check_suite.requested` for a commit on a synced Ghost repository, the app creates a run on that commit, `in_progress`, and completes it `success` once the commit is on GitHub, or `failure` with the reason (diverged, push rejected, installation missing). `check_run.rerequested` or `check_suite.rerequested` on that run, or on any copied run, means "sync again": reconcile the sync, then complete a fresh run. Re-running GitHub's own CI is not something sync.ghost does.
+- Check runs sync both ways (user decision, 2026-11-09): a run on a synced commit on one side is copied to the same commit on the other, same name, status, conclusion, title and summary, `details_url` pointing at the original run, updated in place as the original changes. A copied run appears under Ghost Sync's app on the other side, not the original app. Runs created by Ghost Sync itself (copies and the "Sync with GitHub" run) are never copied back.
+- **The "Sync with GitHub" check** (from the Checks design, 2026-11-06): on `check_suite.requested` for a commit on a synced Ghost repository, the app creates a run on that commit, `in_progress`, and completes it `success` once the commit is on GitHub, or `failure` with the reason (diverged, push rejected, installation missing). `check_run.rerequested` or `check_suite.rerequested` on that run, or on any copied run, means "sync again": reconcile the sync, then complete a fresh run. Re-running GitHub's own CI is not something Ghost Sync does.
 
 ### Issues, comments and labels
 
@@ -160,7 +160,7 @@ The sync shows "Backfilling" until this finishes.
 
 ## Loop prevention
 
-Any event whose actor is the app's bot on that side (`ghost-sync[bot]`, `<slug>[bot]`) is skipped. For code, the base makes this doubly safe: after sync.ghost copies a change, both sides equal the new base and the echo finds nothing to do.
+Any event whose actor is the app's bot on that side (`ghost-sync[bot]`, `<slug>[bot]`) is skipped. For code, the base makes this doubly safe: after Ghost Sync copies a change, both sides equal the new base and the echo finds nothing to do.
 
 Every body the bot writes carries a hidden marker and an attribution line:
 
@@ -229,7 +229,7 @@ Both apps have one webhook URL each for every installation.
 
 1. Verify the signature. Ghost: `X-Ghost-Signature-256` over `<timestamp>.<body>`, rejecting a timestamp more than five minutes off (`docs/webhooks.md`). GitHub: `X-Hub-Signature-256` over the body. Failures answer 401.
 2. Delivery id (`X-Ghost-Delivery`, `X-GitHub-Delivery`) already in `delivery`: answer 200, stop.
-3. `installation.*` events update the affected syncs' status (and, when a repository is added, the installation id on its sync), then stop. sync.ghost keeps no table of installations: pickers ask the hosts live with the user's token, and each sync holds the installation ids it uses (decision, 2026-11-16).
+3. `installation.*` events update the affected syncs' status (and, when a repository is added, the installation id on its sync), then stop. Ghost Sync keeps no table of installations: pickers ask the hosts live with the user's token, and each sync holds the installation ids it uses (decision, 2026-11-16).
 4. Find the sync by repository id. None, or paused: record the delivery, answer 200, stop.
 5. Actor is the bot for that side: record, answer 200, stop.
 6. Record, enqueue on the sync's queue, answer 202. GitHub gives up after 10 seconds and a git push can take longer.
@@ -261,13 +261,13 @@ Reconcile sees ref deletions through the base, but cannot see deleted issues and
 
 ## Configuration
 
-Every variable sync.ghost reads that Ghost also uses carries a `SYNC_` prefix: the monorepo's dev script loads Ghost's root `.env` first, and an unprefixed `DATABASE_URL` once pointed the sync API at Ghost's own database (2026-11-16). `GHOST_API_URL` is shared on purpose: it names the same API.
+Every variable Ghost Sync reads that Ghost also uses carries a `SYNC_` prefix: the monorepo's dev script loads Ghost's root `.env` first, and an unprefixed `DATABASE_URL` once pointed the sync API at Ghost's own database (2026-11-16). `GHOST_API_URL` is shared on purpose: it names the same API.
 
 Environment of `apps/sync/api` (the builder may rename):
 
 | Variable | |
 | --- | --- |
-| `SYNC_DATABASE_URL` | sync.ghost's own Postgres |
+| `SYNC_DATABASE_URL` | Ghost Sync's own Postgres |
 | `GHOST_WEB_URL` | Ghost's web app, for the "Install on Ghost" link (`/apps/<slug>/installations/new`) |
 | `SYNC_AUTH_SECRET`, `SYNC_API_URL` | better-auth's secret and the API's own URL |
 | `SYNC_WEB_URL` | For redirects and trusted origins |

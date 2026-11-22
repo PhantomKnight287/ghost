@@ -21,7 +21,7 @@ const PULL_EVENTS = new Set(["opened", "edited", "closed", "merged", "reopened",
 const ISSUE_EVENTS = new Set(["opened", "edited", "closed", "reopened", "labeled", "unlabeled", "deleted"]);
 const INSTALLATION_STATUS = { created: "active", deleted: "deleted", suspended: "suspended", unsuspended: "active" } as const;
 
-/** The action a Ghost event asks for, or null when sync.ghost does not copy it. */
+/** The action a Ghost event asks for, or null when Ghost Sync does not copy it. */
 function actionOf(event: string, body: GhostPayload): SyncAction | null {
   const [family, verb = ""] = event.split(".");
   const thread = body.issue ?? body.pullRequest;

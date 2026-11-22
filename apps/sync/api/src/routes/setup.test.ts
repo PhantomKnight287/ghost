@@ -19,6 +19,7 @@ function setup(opts: { ghost?: Routes; github?: Routes | null; syncs?: SyncRow[]
     userRest: async (_userId, side) => rest[side],
     appInstallation: async (side) => (opts.installations && side in opts.installations ? (opts.installations[side] ?? null) : side === "ghost" ? 11 : 22),
     installUrl: { ghost: "https://ghost.example.com/apps/ghost-sync/installations/new", github: "https://github.com/apps/ghost-sync/installations/new" },
+    webUrl: { ghost: "https://ghost.example.com", github: "https://github.com" },
     compareRefs: async () => ({ toGhost: 1, toGitHub: 2, diverged: 0 }),
     reconcileNow: (syncId) => reconciled.push(syncId),
     removeMirror: async () => {},

@@ -16,6 +16,7 @@ function setup() {
     userRest: async () => rest,
     appInstallation: async () => 1,
     installUrl: { ghost: "g", github: "h" },
+    webUrl: { ghost: "https://ghost.example.com", github: "https://github.com" },
     compareRefs: async () => ({ toGhost: 0, toGitHub: 0, diverged: 0 }),
     reconcileNow: (id) => reconciled.push(id),
     removeMirror: async (id) => {
@@ -47,6 +48,17 @@ describe("reading", () => {
     expect((body as unknown as { installUrl: unknown }).installUrl).toEqual({ ghost: "g", github: "h" });
   });
 
+  test("GET /api/syncs/:id counts synced refs and paired items", async () => {
+    const { call, store } = setup();
+    await store.setBase("mine", "refs/heads/main", "a");
+    await store.setBase("mine", "refs/heads/stuck", "a");
+    await store.flagRef("mine", "refs/heads/stuck", { ghost: "b", github: "c", reason: "diverged" });
+    await store.saveLink({ syncId: "mine", kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
+    const body = (await (await call("GET", "/api/syncs/mine")).json()) as { counts: unknown; webUrl: unknown };
+    expect(body.counts).toEqual({ refs: 1, issue: 1 });
+    expect(body.webUrl).toEqual({ ghost: "https://ghost.example.com", github: "https://github.com" });
+  });
+
   test("another user's sync is 404, signed out is 401", async () => {
     const { call } = setup();
     expect((await call("GET", "/api/syncs/theirs")).status).toBe(404);
@@ -70,6 +82,7 @@ describe("actions", () => {
     expect((await call("POST", "/api/syncs/mine/resume")).status).toBe(200);
     expect((await store.getSync("mine"))?.status).toBe("active");
     expect(reconciled).toEqual(["mine"]);
+    expect(store.activity.map((a) => a.summary)).toEqual(["Paused", "Resumed; catching up with both sides"]);
   });
 
   test("resume clears a disconnect reason", async () => {
@@ -83,6 +96,7 @@ describe("actions", () => {
     const { call, store, reconciled } = setup();
     await call("POST", "/api/syncs/mine/resync");
     expect(reconciled).toEqual(["mine"]);
+    expect(store.activity.map((a) => a.summary)).toEqual(["Resync requested"]);
     expect((await store.getSync("mine"))?.status).toBe("active");
   });
 

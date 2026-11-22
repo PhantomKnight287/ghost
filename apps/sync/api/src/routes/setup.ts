@@ -16,6 +16,8 @@ export type RouteDeps = {
   /** The app's installation covering `fullName` on `side`, null when it is not installed there. */
   appInstallation: (side: Side, fullName: string) => Promise<number | null>;
   installUrl: Record<Side, string>;
+  /** Each host's web origin, where `<origin>/<full name>` is a repository's page. */
+  webUrl: Record<Side, string>;
   /** What a first sync would do to the branches, from a fetch of both repositories into a throwaway mirror. */
   compareRefs: (userId: string, ghostFullName: string, githubFullName: string) => Promise<RefCounts>;
   reconcileNow: (syncId: string) => unknown;

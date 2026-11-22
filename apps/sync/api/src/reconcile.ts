@@ -90,7 +90,8 @@ export async function reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promi
     return;
   }
   const startedAt = new Date();
-  if (!sync.lastReconciledAt && sync.status !== "backfilling") await store.updateSync(sync.id, { status: "backfilling" });
+  const first = !sync.lastReconciledAt;
+  if (first && sync.status !== "backfilling") await store.updateSync(sync.id, { status: "backfilling" });
   const run: SyncContext = { ...ctx, rest: { ghost: tagged("ghost", ctx.rest.ghost), github: tagged("github", ctx.rest.github) } };
   const since = sync.lastReconciledAt ? `&since=${new Date(sync.lastReconciledAt.getTime() - SINCE_MARGIN_MS).toISOString()}` : "";
 
@@ -111,7 +112,7 @@ export async function reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promi
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (error instanceof RestError && error.side && ACCESS_LOST.includes(error.status)) {
-      await store.updateSync(sync.id, { status: "disconnected", disconnectReason: `${SIDE_NAME[error.side]} refused sync.ghost's access: ${message}` });
+      await store.updateSync(sync.id, { status: "disconnected", disconnectReason: `${SIDE_NAME[error.side]} refused Ghost Sync's access: ${message}` });
       return;
     }
     await store.updateSync(sync.id, { status: "error", lastError: message });
@@ -119,6 +120,7 @@ export async function reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promi
     return;
   }
   await store.updateSync(sync.id, { status: "active", lastError: null, lastReconciledAt: startedAt });
+  if (first) await store.addActivity({ syncId: sync.id, direction: null, kind: "reconcile", summary: "First sync finished", error: null });
 }
 
 /** Whether the sync's owner is still an admin of both repositories, asked with the owner's own tokens; a side with no usable token (unlinked, or refresh failed) counts as lost. */

@@ -6,7 +6,7 @@ import { createRest, type Rest } from "../src/rest.ts";
 import type { Side } from "../src/side.ts";
 
 /**
- * An in-memory Ghost or GitHub: the REST and GraphQL calls sync.ghost makes, real bare git repositories served over file://, and the webhooks a real host sends for every write, sync.ghost's own included.
+ * An in-memory Ghost or GitHub: the REST and GraphQL calls Ghost Sync makes, real bare git repositories served over file://, and the webhooks a real host sends for every write, Ghost Sync's own included.
  * `side` picks the flavour: Ghost names comments, reviews and repositories by UUID in webhooks and spells their REST `node_id` as `<prefix>_<base64url UUID>`; GitHub uses numeric ids throughout.
  */
 
@@ -608,7 +608,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     settings,
     createRepo,
     repo: repoOf,
-    /** Handles a request sync.ghost sent to this host. */
+    /** Handles a request Ghost Sync sent to this host. */
     fetch: (request: Request) => {
       const url = new URL(request.url);
       const path = ghost ? url.pathname.replace(/^\/api\/v3/, "").replace(/^\/api\/graphql$/, "/graphql") : url.pathname;

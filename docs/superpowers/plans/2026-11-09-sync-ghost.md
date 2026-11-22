@@ -1,10 +1,10 @@
-# sync.ghost Implementation Plan
+# Ghost Sync Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **This plan's implementer is the user, by hand, end to end (user decision, 2026-11-09).** Claude reviews; it does not write the code.
 
-**Goal:** A hosted service at `sync.<ghost domain>` where a Ghost user signs in with Ghost, links GitHub, and pairs a Ghost repository with a GitHub repository that then stay in sync both ways without sync.ghost ever destroying anything on its own judgement.
+**Goal:** A hosted service at `sync.<ghost domain>` where a Ghost user signs in with Ghost, links GitHub, and pairs a Ghost repository with a GitHub repository that then stay in sync both ways without Ghost Sync ever destroying anything on its own judgement.
 
 **Architecture:** Two new workspaces under `apps/sync/`. `@ghost/sync-api` (Bun + Hono + better-auth + drizzle on its own Postgres) receives both apps' webhooks, runs one serial queue per sync, and calls idempotent `sync/*` functions that bring one item into agreement across two GitHub-REST clients and one bare git repository. A reconcile timer calls the same functions. `@ghost/sync-web` (TanStack Start) is the four screens and talks only to the API.
 
@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - Root `package.json` `workspaces` gains `"apps/sync/*"`; `apps/sync` itself has no `package.json`.
-- sync.ghost is an outside customer of Ghost: no imports from `apps/api`, `apps/web` or `packages/*`, no access to Ghost's database. That is also why `credentialEnv` is copied from `apps/importer` rather than shared.
+- Ghost Sync is an outside customer of Ghost: no imports from `apps/api`, `apps/web` or `packages/*`, no access to Ghost's database. That is also why `credentialEnv` is copied from `apps/importer` rather than shared.
 - Follow `docs/code-standards.md`: no `to<Format>` reshaping helpers, no concatenated or wrapped strings or comments, comments explain why, every branch tested, no interface with one implementation (a test fake is a second implementation).
 - Migrations are generated with `drizzle-kit generate`, never hand-written.
 - Tokens never appear in argv, a git remote URL, a log line, an `activity` row or a response to the browser. better-auth stores OAuth tokens encrypted.
@@ -31,10 +31,10 @@
 
 ## Review Focus
 
-1. **A person pushes while sync.ghost is pushing the same ref.** Their commit must survive: the lease fails and the comparison re-runs. Test in Task 8.
+1. **A person pushes while Ghost Sync is pushing the same ref.** Their commit must survive: the lease fails and the comparison re-runs. Test in Task 8.
 2. **An installation token expires mid-backfill** (a large first sync runs past an hour). Every request asks the token source again, so the cache refreshes it. Test in Task 4.
 3. **A second reconcile over the same repositories creates nothing.** Interrupted backfills restart from the top and must be idempotent through links. Test in Task 15.
-4. **sync.ghost's own writes come back as events** (its push, its copied check run, its comment). None may be copied back. Tests in Tasks 13, 14 and 15.
+4. **Ghost Sync's own writes come back as events** (its push, its copied check run, its comment). None may be copied back. Tests in Tasks 13, 14 and 15.
 5. **Ghost ids differ between webhook and REST.** Webhooks carry UUIDs; REST carries numeric ids and a `node_id`. A comment created on Ghost must be found from its webhook UUID. Test in Task 10.
 
 ## Contracts fixed by the tests (2026-11-15)
@@ -64,7 +64,7 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - `startReconcileTimer({ store, queue, intervalSeconds })` returns `{ tick(): Promise<void>; stop(): void }`; a tick queues `{ kind: "reconcile" }` for every `active`, `backfilling` and `error` sync, then prunes. Reconciles run as queued jobs, so they never overlap a webhook job on the same sync; the queue's `onError` logs a failure as activity.
 - The queue is a Postgres `job` table (Task 9). `store.enqueueJob` skips a job identical to one still waiting; `claimJob(leaseMs)` takes the oldest job of a sync with nothing older queued or running (`FOR UPDATE SKIP LOCKED`), held by a claim token and a lease the worker renews; `finishJob` deletes it. A failed job is reported and dropped, since reconcile repairs the item.
 - Reconcile lists only `/issues?state=all[&since=]` on each side (pull requests come through it with `pull_request` set; GitHub's pull list has no `since`), and copies check runs for open pull request heads only. Default-branch runs come through webhooks.
-- Routes: `setupRoutes(deps)` and `syncRoutes(deps)`, `RouteDeps = { store, currentUser, userRest, appInstallation, installUrl, compareRefs, reconcileNow, removeMirror }` (in `routes/setup.ts`). Another user's sync answers 404, never 403. A new GitHub repository the installation does not cover is created, the sync saved `disconnected`, and the response carries the install link; sync.ghost does not add it to the installation itself. `GET /api/github/owners` lists the user and organizations where their membership role is `admin`.
+- Routes: `setupRoutes(deps)` and `syncRoutes(deps)`, `RouteDeps = { store, currentUser, userRest, appInstallation, installUrl, compareRefs, reconcileNow, removeMirror }` (in `routes/setup.ts`). Another user's sync answers 404, never 403. A new GitHub repository the installation does not cover is created, the sync saved `disconnected`, and the response carries the install link; Ghost Sync does not add it to the installation itself. `GET /api/github/owners` lists the user and organizations where their membership role is `admin`.
 
 ## File structure
 

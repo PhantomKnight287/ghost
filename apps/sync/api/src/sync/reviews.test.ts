@@ -139,12 +139,32 @@ describe("syncReviewComment", () => {
   test("linked: an edit updates the copy", async () => {
     const ctx = testContext({
       github: { "GET /repos/acme-gh/app/pulls/comments/501": { ...lineComment, body: "nit, edited" } },
-      ghost: { "PATCH /repos/acme/app/pulls/comments/601": {} },
+      ghost: { "GET /repos/acme/app/pulls/comments/601": { ...lineComment, id: 601, body: withMarker(lineComment.body ?? "", "github", "coderabbitai[bot]") }, "PATCH /repos/acme/app/pulls/comments/601": {} },
+    });
+    await linkedPull(ctx);
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ghostId: commentUuid, ghostRestId: "601", githubId: "501", synced: { body: lineComment.body } });
+    await syncReviewComment(ctx, "github", 8, "501");
+    expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/pulls/comments/601", body: { body: withMarker("nit, edited", "github", "coderabbitai[bot]") } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual([`Edited the copy of coderabbitai[bot]'s comment on ${lineComment.path} in GitHub #8`]);
+  });
+
+  test("linked: a copy that is gone is logged and skipped", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/pulls/comments/501": lineComment } });
+    await linkedPull(ctx);
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ghostId: commentUuid, ghostRestId: "601", githubId: "501" });
+    await syncReviewComment(ctx, "github", 8, "501");
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ direction: "ghost", kind: "review_comment", error: expect.stringContaining("404") })]);
+  });
+
+  test("linked: an unchanged comment is not written", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/pulls/comments/501": lineComment },
+      ghost: { "GET /repos/acme/app/pulls/comments/601": { ...lineComment, id: 601, body: withMarker(lineComment.body ?? "", "github", "coderabbitai[bot]") } },
     });
     await linkedPull(ctx);
     await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ghostId: commentUuid, ghostRestId: "601", githubId: "501" });
     await syncReviewComment(ctx, "github", 8, "501");
-    expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/pulls/comments/601", body: { body: withMarker("nit, edited", "github", "coderabbitai[bot]") } }]);
+    expect(writes(ctx.ghost)).toEqual([]);
   });
 
   test("a line no longer in the diff is skipped and logged", async () => {
@@ -204,7 +224,10 @@ describe("review edge cases", () => {
     await syncReview(ctx, "github", 8, "77");
     expect(posts).toBe(2);
     expect(await ctx.store.findLink(ctx.sync.id, "review", "github", "77")).toMatchObject({ ghostRestId: "900" });
-    expect(ctx.store.activity).toEqual([expect.objectContaining({ kind: "review_comment", error: expect.stringContaining("part of the diff") })]);
+    expect(ctx.store.activity).toEqual([
+      expect.objectContaining({ kind: "review", direction: "ghost", error: null }),
+      expect.objectContaining({ kind: "review_comment", error: expect.stringContaining("part of the diff") }),
+    ]);
   });
 
   test("a line comment copied on its own before its review arrives is not copied again", async () => {

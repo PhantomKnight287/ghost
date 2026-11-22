@@ -30,10 +30,15 @@ export function fakeStore(seed: { syncs?: SyncRow[] } = {}): FakeStore {
     },
     async saveLink(link) {
       store.links = store.links.filter((l) => !(l.syncId === link.syncId && l.kind === link.kind && (l.ghostId === link.ghostId || l.githubId === link.githubId)));
-      store.links.push({ ...link, updatedAt: new Date() });
+      store.links.push({ ...link, synced: link.synced ?? null, updatedAt: new Date() });
     },
     async deleteLink(syncId, kind, side, id) {
       store.links = store.links.filter((l) => !(l.syncId === syncId && l.kind === kind && idOf(l, side) === id));
+    },
+    async countLinks(syncId) {
+      const counts: Partial<Record<Link["kind"], number>> = {};
+      for (const l of store.links) if (l.syncId === syncId) counts[l.kind] = (counts[l.kind] ?? 0) + 1;
+      return counts;
     },
     async getRef(syncId, name) {
       return store.refs.find((r) => r.syncId === syncId && r.name === name) ?? null;

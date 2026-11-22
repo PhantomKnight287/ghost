@@ -24,7 +24,7 @@ const PULL_ACTIONS = new Set(["opened", "edited", "closed", "reopened", "synchro
 const ISSUE_ACTIONS = new Set(["opened", "edited", "closed", "reopened", "labeled", "unlabeled", "deleted"]);
 const INSTALLATION_STATUS = { created: "active", deleted: "deleted", suspend: "suspended", unsuspend: "active" } as const;
 
-/** The action a GitHub event asks for, or null when sync.ghost does not copy it. */
+/** The action a GitHub event asks for, or null when Ghost Sync does not copy it. */
 function actionOf(event: string, body: GitHubPayload): SyncAction | null {
   const verb = body.action ?? "";
   switch (event) {

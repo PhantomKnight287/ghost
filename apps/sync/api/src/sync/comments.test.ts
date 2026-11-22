@@ -50,12 +50,32 @@ describe("syncComment", () => {
   test("linked: the body is edited in place", async () => {
     const ctx = testContext({
       github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: "edited", user: { login: "x" } } },
-      ghost: { "PATCH /repos/acme/app/issues/comments/301": {} },
+      ghost: { "GET /repos/acme/app/issues/comments/301": { ...ghostComment, body: withMarker("first", "github", "x") }, "PATCH /repos/acme/app/issues/comments/301": {} },
     });
     await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
-    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001" });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001", synced: { body: "first" } });
     await syncComment(ctx, "github", 5, "9001");
     expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/issues/comments/301", body: { body: withMarker("edited", "github", "x") } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Edited the copy of x's comment on GitHub #5"]);
+    expect((await ctx.store.findLink(ctx.sync.id, "comment", "github", "9001"))?.synced).toEqual({ body: "edited" });
+  });
+
+  test("linked: an unchanged comment is not written, and an edit on the copy is not undone", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: "first", user: { login: "x" } } },
+      ghost: { "GET /repos/acme/app/issues/comments/301": { ...ghostComment, body: withMarker("changed on Ghost", "github", "x") } },
+    });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001", synced: { body: "first" } });
+    await syncComment(ctx, "github", 5, "9001");
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect(ctx.store.activity).toEqual([]);
+  });
+
+  test("linked: a copy that is gone is logged and skipped", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: "first", user: { login: "x" } } } });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001" });
+    await syncComment(ctx, "github", 5, "9001");
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ direction: "ghost", kind: "comment", error: expect.stringContaining("404") })]);
   });
 
   test("an unlinked parent issue is synced first", async () => {
@@ -134,9 +154,9 @@ describe("comment edge cases", () => {
   test("an edit on our copy goes back to the original without a marker", async () => {
     const ctx = testContext({
       github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: withMarker("fixed typo", "ghost", "bob"), user: { login: "ghost-sync[bot]" } } },
-      ghost: { "PATCH /repos/acme/app/issues/comments/301": {} },
+      ghost: { "GET /repos/acme/app/issues/comments/301": { ...ghostComment, body: "fixd typo" }, "PATCH /repos/acme/app/issues/comments/301": {} },
     });
-    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001" });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001", synced: { body: "fixd typo" } });
     await syncComment(ctx, "github", 5, "9001");
     expect(writes(ctx.ghost)[0]?.body).toEqual({ body: "fixed typo" });
   });

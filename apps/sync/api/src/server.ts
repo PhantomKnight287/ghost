@@ -156,6 +156,7 @@ export function createServer(config: Config, db: PostgresJsDatabase<typeof schem
     userRest,
     appInstallation,
     installUrl,
+    webUrl: { ghost: config.GHOST_WEB_URL, github: "https://github.com" },
     compareRefs,
     reconcileNow: (syncId) => queue.push(syncId, { kind: "reconcile" }),
     removeMirror: (syncId) => rm(mirrorOf(syncId), { recursive: true, force: true }),

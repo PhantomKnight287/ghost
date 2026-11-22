@@ -22,16 +22,31 @@ const ghostPull = (overrides: Record<string, unknown> = {}) => ({
   base: { ref: "main", sha: "m1", repo: { id: 1 } },
   ...overrides,
 });
-const githubPull = (overrides: Record<string, unknown> = {}) => ({ number: 8, node_id: "PR_gh8", state: "open", draft: false, merged: false, ...overrides });
+/** GitHub #8, the copy of Ghost #3 as both sides last agreed on it. */
+const githubPull = (overrides: Record<string, unknown> = {}) => ({
+  number: 8,
+  node_id: "PR_gh8",
+  title: "Add sync",
+  body: withMarker("Does things", "ghost", "bob"),
+  state: "open",
+  draft: false,
+  merged: false,
+  user: { login: "ghost-sync[bot]" },
+  labels: [],
+  head: { ref: "feat", sha: "h1", repo: { id: 2 } },
+  base: { ref: "main", sha: "m1", repo: { id: 2 } },
+  ...overrides,
+});
+const agreed = { title: "Add sync", body: "Does things", state: "open", base: "main", draft: false, labels: [] as string[] };
 /** Ghost has `feat`; both sides agree on `main`. */
 const repos = () => {
   const git = fakeGit({ ghost: { [feat]: "h1", [main]: "m1" }, github: { [main]: "m1" } });
   return git;
 };
 /** Linked as Ghost #3 ↔ GitHub #8, with both branches already agreed on both sides. */
-const linked = async (ctx: ReturnType<typeof testContext>) => {
+const linked = async (ctx: ReturnType<typeof testContext>, synced: Partial<typeof agreed> = {}) => {
   ctx.git.repos.github.set(feat, "h1");
-  await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostId: "3", ghostRestId: null, githubId: "8" });
+  await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostId: "3", ghostRestId: null, githubId: "8", synced: { ...agreed, ...synced } });
   await ctx.store.setBase(ctx.sync.id, main, "m1");
   await ctx.store.setBase(ctx.sync.id, feat, "h1");
 };
@@ -148,6 +163,7 @@ describe("forks", () => {
     await linked(ctx);
     await syncPull(ctx, "ghost", 3);
     expect(git.pushes).toContainEqual({ side: "github", ref: "refs/heads/ghost-pr/3", sha: "rewritten", expected: "old" });
+    expect(ctx.store.activity.map((a) => a.summary)).toContain("Moved ghost-pr/3 to rewritt, the head of Ghost fork pull request #3");
   });
 
   test("ghost-pr/<n> is deleted when the pull request closes", async () => {
@@ -162,6 +178,7 @@ describe("forks", () => {
     await linked(ctx);
     await syncPull(ctx, "ghost", 3);
     expect(git.pushes).toContainEqual({ side: "github", ref: "refs/heads/ghost-pr/3", sha: null, expected: "fh" });
+    expect(ctx.store.activity.map((a) => a.summary)).toContain("Deleted ghost-pr/3, as Ghost pull request #3 closed");
   });
 
   test("a GitHub fork pull request is never synced", async () => {
@@ -191,9 +208,31 @@ describe("syncPull, linked", () => {
     });
     await linked(ctx);
     await syncPull(ctx, "ghost", 3);
-    expect(writes(ctx.github)).toEqual([
-      { method: "PATCH", path: "/repos/acme-gh/app/pulls/8", body: { title: "Renamed", body: withMarker("Does things", "ghost", "bob"), state: "open" } },
-    ]);
+    expect(writes(ctx.github)).toEqual([{ method: "PATCH", path: "/repos/acme-gh/app/pulls/8", body: { title: "Renamed" } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(['Retitled GitHub pull request #8 to "Renamed"']);
+  });
+
+  test("a close is copied with the body attributed, and logged", async () => {
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ state: "closed", body: "Reworded" }) },
+      github: { "GET /repos/acme-gh/app/pulls/8": githubPull(), "PATCH /repos/acme-gh/app/pulls/8": {} },
+    });
+    await linked(ctx);
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)).toEqual([{ method: "PATCH", path: "/repos/acme-gh/app/pulls/8", body: { body: withMarker("Reworded", "ghost", "bob"), state: "closed" } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Edited the description of GitHub pull request #8", "Closed GitHub pull request #8"]);
+  });
+
+  test("a change made only on the copy is left for the copy's own pass", async () => {
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull() },
+      github: { "GET /repos/acme-gh/app/pulls/8": githubPull({ state: "closed" }) },
+    });
+    await linked(ctx);
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)).toEqual([]);
   });
 
   test("ready for review and back to draft go through GraphQL", async () => {
@@ -202,7 +241,7 @@ describe("syncPull, linked", () => {
       ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ draft: false }) },
       github: { "GET /repos/acme-gh/app/pulls/8": githubPull({ draft: true }), "PATCH /repos/acme-gh/app/pulls/8": {}, "GRAPHQL markPullRequestReadyForReview": {} },
     });
-    await linked(ready);
+    await linked(ready, { draft: true });
     await syncPull(ready, "ghost", 3);
     const markCall = ready.github.calls.find((c) => c.method === "GRAPHQL");
     expect(markCall?.path).toBe("markPullRequestReadyForReview");
@@ -216,6 +255,7 @@ describe("syncPull, linked", () => {
     await linked(draft);
     await syncPull(draft, "ghost", 3);
     expect(draft.github.calls.find((c) => c.method === "GRAPHQL")?.path).toBe("convertPullRequestToDraft");
+    expect(draft.store.activity.map((a) => a.summary)).toEqual(["Marked GitHub pull request #8 as a draft"]);
   });
 
   test("merged on Ghost and seen as merged on GitHub: nothing more", async () => {
@@ -306,6 +346,7 @@ describe("syncPull edge cases", () => {
     await linked(ctx);
     await syncPull(ctx, "ghost", 3);
     expect(writes(ctx.github).at(-1)).toEqual({ method: "PATCH", path: "/repos/acme-gh/app/issues/8", body: { labels: ["bug"] } });
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Set the labels of GitHub pull request #8 to bug"]);
   });
 
   test("merged on one side, closed without merging on the other: left as is", async () => {

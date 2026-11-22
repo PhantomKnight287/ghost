@@ -30,6 +30,10 @@ describe("syncIssue", () => {
       { method: "POST", path: "/repos/acme/app/issues", body: { title: "Crash on save", body: withMarker("Steps", "github", "alice"), labels: ["bug"] } },
     ]);
     expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toMatchObject({ ghostId: "12" });
+    expect(ctx.store.activity.map((a) => [a.direction, a.kind, a.summary, a.error])).toEqual([
+      ["ghost", "label", "Created label bug", null],
+      ["ghost", "issue", "Copied GitHub issue #5 as #12", null],
+    ]);
   });
 
   test("a null body copies as empty", async () => {
@@ -59,16 +63,71 @@ describe("syncIssue", () => {
     expect(writes(ctx.github)[0]?.body).toEqual({ title: "T", body: withMarker("B", "ghost", "bob"), labels: [] });
   });
 
-  test("linked: title, body, state and labels follow, nothing is created", async () => {
+  const ghostCopy = (overrides: Record<string, unknown> = {}) => ({ number: 12, node_id: "I_g12", title: "Crash on save", body: withMarker("Steps", "github", "alice"), state: "open", user: { login: "ghost-sync[bot]" }, labels: [bug], ...overrides });
+  const agreed = { title: "Crash on save", body: "Steps", state: "open", labels: ["bug"] };
+  const linked = (ctx: ReturnType<typeof testContext>, synced: Record<string, unknown> | null = agreed) =>
+    ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5", synced: synced as typeof agreed });
+
+  test("linked: only what changed is written, each change logged, nothing created", async () => {
     const ctx = testContext({
-      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ state: "closed" }) },
-      ghost: { ...ghostLabelExists, "PATCH /repos/acme/app/issues/12": {} },
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ state: "closed", title: "Crash on save as" }) },
+      ghost: { ...ghostLabelExists, "GET /repos/acme/app/issues/12": ghostCopy(), "PATCH /repos/acme/app/issues/12": {} },
     });
-    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
+    await linked(ctx);
     expect(await syncIssue(ctx, "github", 5)).toBe(12);
-    expect(writes(ctx.ghost)).toEqual([
-      { method: "PATCH", path: "/repos/acme/app/issues/12", body: { title: "Crash on save", body: withMarker("Steps", "github", "alice"), state: "closed", labels: ["bug"] } },
-    ]);
+    expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/issues/12", body: { title: "Crash on save as", state: "closed" } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(['Retitled Ghost issue #12 to "Crash on save as"', "Closed Ghost issue #12"]);
+    expect((await ctx.store.findLink(ctx.sync.id, "issue", "github", "5"))?.synced).toEqual({ ...agreed, title: "Crash on save as", state: "closed" });
+  });
+
+  test("linked: a reopen is copied and logged", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue() },
+      ghost: { ...ghostLabelExists, "GET /repos/acme/app/issues/12": ghostCopy({ state: "closed" }), "PATCH /repos/acme/app/issues/12": {} },
+    });
+    await linked(ctx, { ...agreed, state: "closed" });
+    await syncIssue(ctx, "github", 5);
+    expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/issues/12", body: { state: "open" } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Reopened Ghost issue #12"]);
+  });
+
+  test("linked: a close made on the other side and not yet copied is never undone", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ updated_at: "2026-11-22T17:10:00Z" }) },
+      ghost: { ...ghostLabelExists, "GET /repos/acme/app/issues/12": ghostCopy({ state: "closed", updated_at: "2026-11-22T17:00:00Z" }) },
+    });
+    await linked(ctx);
+    await syncIssue(ctx, "github", 5);
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect(ctx.store.activity).toEqual([]);
+  });
+
+  test("linked: sides that already agree are left alone", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue() },
+      ghost: { ...ghostLabelExists, "GET /repos/acme/app/issues/12": ghostCopy() },
+    });
+    await linked(ctx, null);
+    await syncIssue(ctx, "github", 5);
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect((await ctx.store.findLink(ctx.sync.id, "issue", "github", "5"))?.synced).toEqual(agreed);
+  });
+
+  test("linked: with no agreed state the side changed last wins", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ state: "closed", updated_at: "2026-11-22T17:00:00Z" }) },
+      ghost: { ...ghostLabelExists, "GET /repos/acme/app/issues/12": ghostCopy({ updated_at: "2026-11-22T17:10:00Z" }) },
+    });
+    await linked(ctx, null);
+    await syncIssue(ctx, "github", 5);
+    expect(writes(ctx.ghost)).toEqual([]);
+  });
+
+  test("linked: a copy that is gone is logged and skipped", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/issues/5": githubIssue() }, ghost: ghostLabelExists });
+    await linked(ctx);
+    expect(await syncIssue(ctx, "github", 5)).toBe(12);
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ direction: "ghost", kind: "issue", error: expect.stringContaining("404") })]);
   });
 
   test("an unlinked issue written by our bot is left alone", async () => {
@@ -80,11 +139,12 @@ describe("syncIssue", () => {
   test("an edit made on our copy goes back to the original without a marker", async () => {
     const ctx = testContext({
       github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ user: { login: "ghost-sync[bot]" }, body: withMarker("Edited on GitHub", "ghost", "bob"), labels: [] }) },
-      ghost: { "PATCH /repos/acme/app/issues/12": {} },
+      ghost: { "GET /repos/acme/app/issues/12": ghostCopy({ user: { login: "bob" }, body: "Steps", labels: [] }), "PATCH /repos/acme/app/issues/12": {} },
     });
-    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
+    await linked(ctx, { ...agreed, labels: [] });
     await syncIssue(ctx, "github", 5);
-    expect(writes(ctx.ghost)[0]?.body).toMatchObject({ body: "Edited on GitHub" });
+    expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/issues/12", body: { body: "Edited on GitHub" } }]);
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Edited the description of Ghost issue #12"]);
   });
 
   test("a vanished source writes a skipped activity row and does not throw", async () => {

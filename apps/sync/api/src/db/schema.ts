@@ -5,6 +5,8 @@ import type { SyncAction } from "../sync/action.ts";
 export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | "error";
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
 /** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */
+/** An item's fields as both sides last agreed on them, so a later pass can tell which side changed since. */
+export type SyncedFields = Record<string, string | boolean | string[] | null>;
 export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean; posted?: string[] };
 
 export const sync = pgTable("sync", {
@@ -34,6 +36,7 @@ export const link = pgTable(
     ghostId: text("ghost_id").notNull(),
     ghostRestId: text("ghost_rest_id"),
     githubId: text("github_id").notNull(),
+    synced: jsonb("synced").$type<SyncedFields>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.syncId, table.kind, table.ghostId] }), unique().on(table.syncId, table.kind, table.githubId)],

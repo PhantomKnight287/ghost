@@ -2,7 +2,8 @@ import { readMarker, withMarker } from "../format.ts";
 import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { repoPath, type SyncContext } from "./context.ts";
-import { createOnce, isNotFound, skipped } from "./write.ts";
+import { describeChanges, isNewer, mergeFields } from "./fields.ts";
+import { createOnce, done, isNotFound, skipped } from "./write.ts";
 
 export type Label = { name: string; color: string; description: string | null };
 type Issue = {
@@ -14,7 +15,11 @@ type Issue = {
   user: { login: string };
   labels: Label[];
   pull_request?: unknown;
+  updated_at?: string;
 };
+
+/** The fields an issue's copy follows, with the body as the person wrote it, whichever side holds the marked copy. */
+const issueFields = (issue: Issue) => ({ title: issue.title, body: readMarker(issue.body ?? "").body, state: issue.state, labels: issue.labels.map((l) => l.name).sort() });
 
 const path = (ctx: SyncContext, side: Side, rest = "") => `${repoPath(ctx, side)}${rest}`;
 const labelPath = (ctx: SyncContext, side: Side, name: string) => path(ctx, side, `/labels/${encodeURIComponent(name)}`);
@@ -36,6 +41,7 @@ export async function ensureLabel(ctx: SyncContext, to: Side, label: Label) {
   } catch (error) {
     if (!isNotFound(error)) throw error;
     await ctx.rest[to].request("POST", path(ctx, to, "/labels"), { name: label.name, color: label.color, description: label.description });
+    await done(ctx, to, "label", `Created label ${label.name}`);
   }
 }
 
@@ -62,7 +68,21 @@ export async function syncIssue(ctx: SyncContext, from: Side, number: number): P
 
   if (link) {
     const counterpart = Number(to === "ghost" ? link.ghostId : link.githubId);
-    await ctx.rest[to].request("PATCH", path(ctx, to, `/issues/${counterpart}`), { ...fields, state: source.state });
+    const targetPath = path(ctx, to, `/issues/${counterpart}`);
+    let target: Issue;
+    try {
+      target = await ctx.rest[to].request<Issue>("GET", targetPath);
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      await skipped(ctx, to, "issue", `${SIDE_NAME[to]} issue #${counterpart}, the copy of ${SIDE_NAME[from]} issue #${number}, is gone`, error);
+      return counterpart;
+    }
+    const { write, agreed } = mergeFields(issueFields(source), issueFields(target), link.synced, isNewer(source, target));
+    if (Object.keys(write).length > 0) {
+      await ctx.rest[to].request("PATCH", targetPath, "body" in write ? { ...write, body: fields.body } : write);
+      for (const summary of describeChanges(write, `${SIDE_NAME[to]} issue #${counterpart}`)) await done(ctx, to, "issue", summary);
+    }
+    await ctx.store.saveLink({ ...link, synced: agreed });
     return counterpart;
   }
 
@@ -71,8 +91,12 @@ export async function syncIssue(ctx: SyncContext, from: Side, number: number): P
     return recent.find((issue) => issue.user.login === ctx.bot[to] && issue.title === fields.title && issue.body === fields.body);
   });
   const ids = from === "ghost" ? { ghostId: String(number), githubId: String(created.number) } : { ghostId: String(created.number), githubId: String(number) };
-  await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids });
-  if (source.state === "closed") await ctx.rest[to].request("PATCH", path(ctx, to, `/issues/${created.number}`), { state: "closed" });
+  await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids, synced: issueFields(source) });
+  await done(ctx, to, "issue", `Copied ${SIDE_NAME[from]} issue #${number} as #${created.number}`);
+  if (source.state === "closed") {
+    await ctx.rest[to].request("PATCH", path(ctx, to, `/issues/${created.number}`), { state: "closed" });
+    await done(ctx, to, "issue", `Closed ${SIDE_NAME[to]} issue #${created.number}`);
+  }
   return created.number;
 }
 
@@ -94,6 +118,7 @@ export async function deleteIssue(ctx: SyncContext, from: Side, number: number) 
 
   try {
     await ctx.rest[to].graphql("mutation($id: ID!) { deleteIssue(input: { issueId: $id }) { clientMutationId } }", { id: nodeId });
+    await done(ctx, to, "issue", `Deleted ${SIDE_NAME[to]} issue #${counterpart}, as ${SIDE_NAME[from]} issue #${number} was`);
   } catch (error) {
     // GraphQL refusals arrive as a 200 with errors; a missing permission as 403.
     if (!(error instanceof RestError) || ![200, 401, 403].includes(error.status)) throw error;
@@ -131,20 +156,24 @@ export async function syncLabelDefinition(ctx: SyncContext, from: Side, name: st
   const renamed = !target && previousName !== undefined && previousName !== name ? await current(previousName) : null;
   if (renamed && previousName !== undefined) {
     await ctx.rest[to].request("PATCH", labelPath(ctx, to, previousName), { new_name: name, color: source.color, description: source.description });
+    await done(ctx, to, "label", `Renamed label ${previousName} to ${name}`);
     return;
   }
   if (!target) {
     await ctx.rest[to].request("POST", path(ctx, to, "/labels"), { name, color: source.color, description: source.description });
+    await done(ctx, to, "label", `Created label ${name}`);
     return;
   }
   if (target.color !== source.color || target.description !== source.description) {
     await ctx.rest[to].request("PATCH", labelPath(ctx, to, name), { color: source.color, description: source.description });
+    await done(ctx, to, "label", `Updated the colour or description of label ${name}`);
   }
 }
 
 export async function deleteLabelDefinition(ctx: SyncContext, from: Side, name: string) {
   try {
     await ctx.rest[other(from)].request("DELETE", labelPath(ctx, other(from), name));
+    await done(ctx, other(from), "label", `Deleted label ${name}`);
   } catch (error) {
     if (!isNotFound(error)) throw error;
   }

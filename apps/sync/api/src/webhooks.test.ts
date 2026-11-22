@@ -94,7 +94,7 @@ describe("POST /webhooks/ghost", () => {
     }
   });
 
-  test("events sync.ghost does not copy are acknowledged", async () => {
+  test("events Ghost Sync does not copy are acknowledged", async () => {
     const { app, queued } = setup();
     expect((await app.request(ghostRequest({ event: "ping", webhook: { id: "w" } }))).status).toBe(200);
     expect(queued).toEqual([]);
