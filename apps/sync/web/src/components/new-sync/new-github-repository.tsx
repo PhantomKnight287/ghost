@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api.ts";
+import { Input, Select } from "../ui/field.tsx";
+import { Segmented } from "../ui/segmented.tsx";
 import { Skeleton } from "../ui/skeleton.tsx";
 
 export type NewRepository = { owner: string; name: string; private: boolean };
@@ -8,49 +10,44 @@ export type NewRepository = { owner: string; name: string; private: boolean };
 export function NewGitHubRepository({ value, onChange }: { value: NewRepository; onChange: (next: NewRepository) => void }) {
   const owners = useQuery({ queryKey: ["github-owners"], queryFn: () => api<{ owners: string[] }>("/api/github/owners") });
 
-  if (owners.error) return <p className="text-sm text-neutral-500">{owners.error.message}</p>;
+  if (owners.error) return <p className="text-sm text-zinc-500 dark:text-zinc-400">{owners.error.message}</p>;
   if (!owners.data) return <NewGitHubRepositorySkeleton />;
 
   const owner = value.owner || owners.data.owners[0] || "";
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <select
-          value={owner}
-          onChange={(event) => onChange({ ...value, owner: event.target.value })}
-          className="rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
-        >
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-2 sm:grid-cols-[12rem_auto_minmax(0,1fr)] sm:items-center">
+        <Select aria-label="Owner" value={owner} onChange={(event) => onChange({ ...value, owner: event.target.value })}>
           {owners.data.owners.map((login) => (
             <option key={login} value={login}>
               {login}
             </option>
           ))}
-        </select>
-        <span className="hidden text-neutral-500 sm:inline">/</span>
-        <input
-          value={value.name}
-          onChange={(event) => onChange({ ...value, owner, name: event.target.value })}
-          placeholder="repository-name"
-          className="flex-1 rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
+        </Select>
+        <span className="hidden text-zinc-400 sm:inline">/</span>
+        <Input aria-label="Repository name" value={value.name} onChange={(event) => onChange({ ...value, owner, name: event.target.value })} placeholder="repository-name" />
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-[13px] text-zinc-500 dark:text-zinc-400">Visibility</span>
+        <Segmented
+          label="Visibility"
+          value={value.private ? "private" : "public"}
+          onChange={(next) => onChange({ ...value, owner, private: next === "private" })}
+          options={[
+            { value: "private", label: "Private" },
+            { value: "public", label: "Public" },
+          ]}
         />
       </div>
-      <fieldset className="flex gap-4 text-sm">
-        {[true, false].map((isPrivate) => (
-          <label key={String(isPrivate)} className="flex items-center gap-2">
-            <input type="radio" name="visibility" checked={value.private === isPrivate} onChange={() => onChange({ ...value, owner, private: isPrivate })} />
-            {isPrivate ? "Private" : "Public"}
-          </label>
-        ))}
-      </fieldset>
     </div>
   );
 }
 
 function NewGitHubRepositorySkeleton() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <Skeleton className="h-9 w-full" />
-      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-7 w-48" />
     </div>
   );
 }

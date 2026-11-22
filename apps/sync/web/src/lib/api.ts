@@ -2,6 +2,7 @@
 export const API_URL = import.meta.env.VITE_SYNC_API_URL ?? "http://localhost:3006";
 
 export type Side = "ghost" | "github";
+export const HOST: Record<Side, "Ghost" | "GitHub"> = { ghost: "Ghost", github: "GitHub" };
 export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | "error";
 
 export type Sync = {
@@ -17,7 +18,10 @@ export type Sync = {
 
 export type FlaggedRef = { name: string; ghost: string | null; github: string | null; reason: string };
 export type Activity = { at: string; direction: Side | null; kind: string; summary: string; error: string | null };
-export type SyncDetail = { sync: Sync; flagged: FlaggedRef[]; activity: Activity[]; installUrl: Record<Side, string> };
+export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
+/** Branches and tags in agreement, and paired items of each kind. */
+export type SyncCounts = { refs: number } & Partial<Record<LinkKind, number>>;
+export type SyncDetail = { sync: Sync; flagged: FlaggedRef[]; counts: SyncCounts; activity: Activity[]; installUrl: Record<Side, string>; webUrl: Record<Side, string> };
 export type Me = { ghost: { login: string } | null; github: { login: string } | null };
 export type Repository = { id: string; fullName: string; private: boolean; synced: boolean };
 export type Repositories = { installUrl: string; repositories: Repository[] };

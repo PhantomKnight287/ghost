@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type Preview } from "@/lib/api.ts";
+import { Callout } from "../ui/callout.tsx";
 import { Skeleton } from "../ui/skeleton.tsx";
 
 /** What the first sync will copy each way. Nothing is overwritten: branches that differ on both sides are left alone and flagged. */
@@ -9,7 +10,7 @@ export function PreviewSummary({ ghost, github }: { ghost: string; github: strin
     queryFn: () => api<Preview>("/api/syncs/preview", { method: "POST", body: { ghost: { fullName: ghost }, github: { fullName: github } } }),
   });
 
-  if (preview.error) return <p className="text-sm text-red-600">{preview.error.message}</p>;
+  if (preview.error) return <Callout tone="danger" title="The preview could not be built">{preview.error.message}</Callout>;
   if (!preview.data) return <PreviewSummarySkeleton />;
 
   const { branches, issues, pulls } = preview.data;
@@ -19,35 +20,41 @@ export function PreviewSummary({ ghost, github }: { ghost: string; github: strin
     ["Pull requests", pulls.toGitHub, pulls.toGhost],
   ];
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
-      <h3 className="font-medium">What the first sync will do</h3>
-      <table className="w-full text-left">
-        <thead className="text-neutral-500">
-          <tr>
-            <th className="py-1 font-normal" />
-            <th className="py-1 font-normal">To GitHub</th>
-            <th className="py-1 font-normal">To Ghost</th>
+    <div className="flex flex-col gap-3">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+            <th className="py-2 text-left font-medium">Copied</th>
+            <th className="py-2 text-right font-medium">To GitHub</th>
+            <th className="py-2 text-right font-medium">To Ghost</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
           {rows.map(([label, toGitHub, toGhost]) => (
             <tr key={label}>
-              <td className="py-1">{label}</td>
-              <td className="py-1 tabular-nums">{toGitHub}</td>
-              <td className="py-1 tabular-nums">{toGhost}</td>
+              <td className="py-2">{label}</td>
+              <td className={`py-2 text-right tabular-nums ${toGitHub ? "font-medium" : "text-zinc-400"}`}>{toGitHub}</td>
+              <td className={`py-2 text-right tabular-nums ${toGhost ? "font-medium" : "text-zinc-400"}`}>{toGhost}</td>
             </tr>
           ))}
         </tbody>
       </table>
       {branches.diverged > 0 && (
-        <p className="text-amber-700 dark:text-amber-400">
-          {branches.diverged} {branches.diverged === 1 ? "branch differs" : "branches differ"} on both sides and will be left alone and flagged until someone makes them agree.
-        </p>
+        <Callout tone="warning" title={branches.diverged === 1 ? "1 branch differs on both sides" : `${branches.diverged} branches differ on both sides`}>
+          They are left alone and flagged until someone makes them agree.
+        </Callout>
       )}
     </div>
   );
 }
 
 function PreviewSummarySkeleton() {
-  return <Skeleton className="h-36 w-full" />;
+  return (
+    <div className="flex flex-col gap-2">
+      <Skeleton className="h-6 w-full" />
+      <Skeleton className="h-6 w-full" />
+      <Skeleton className="h-6 w-full" />
+      <Skeleton className="h-6 w-full" />
+    </div>
+  );
 }

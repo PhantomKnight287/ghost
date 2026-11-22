@@ -1,11 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiError, api, type NewSync } from "@/lib/api.ts";
-import { Button } from "../ui/button.tsx";
+import { Button, buttonClass } from "../ui/button.tsx";
+import { Callout } from "../ui/callout.tsx";
+import { Panel } from "../ui/panel.tsx";
+import { Segmented } from "../ui/segmented.tsx";
 import { type NewRepository, NewGitHubRepository } from "./new-github-repository.tsx";
 import { PreviewSummary } from "./preview-summary.tsx";
 import { RepositoryPicker } from "./repository-picker.tsx";
+import { Step } from "./step.tsx";
 
 /** One page: a Ghost repository, an existing or new GitHub one, what the first sync will do, and "Start sync". */
 export function NewSyncForm() {
@@ -29,42 +33,58 @@ export function NewSyncForm() {
     start.mutate({ ghost: { fullName: ghost }, github: mode === "existing" ? { fullName: github } : { create: { ...created, name: created.name.trim() } } });
 
   return (
-    <div className="flex max-w-2xl flex-col gap-8">
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium">Ghost repository</h2>
+    <Panel className="divide-y divide-zinc-200 dark:divide-zinc-800">
+      <Step number={1} title="Ghost repository" hint="Repositories the app is installed on and you administer.">
         <RepositoryPicker side="ghost" value={ghost} onChange={setGhost} />
-      </section>
+      </Step>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium">GitHub repository</h2>
-        <fieldset className="flex gap-4 text-sm">
-          {(["existing", "create"] as const).map((choice) => (
-            <label key={choice} className="flex items-center gap-2">
-              <input type="radio" name="github-mode" checked={mode === choice} onChange={() => setMode(choice)} />
-              {choice === "existing" ? "Existing" : "Create new"}
-            </label>
-          ))}
-        </fieldset>
+      <Step
+        number={2}
+        title="GitHub repository"
+        hint={mode === "existing" ? "Pick one the app can reach, or start an empty one." : "Created empty, so the first sync fills it from Ghost."}
+        aside={
+          <Segmented
+            label="GitHub repository"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "existing", label: "Existing" },
+              { value: "create", label: "Create new" },
+            ]}
+          />
+        }
+      >
         {mode === "existing" ? <RepositoryPicker side="github" value={github} onChange={setGithub} /> : <NewGitHubRepository value={created} onChange={setCreated} />}
-      </section>
+      </Step>
 
-      {ghost && mode === "existing" && github && <PreviewSummary ghost={ghost} github={github} />}
+      <Step number={3} title="Review" hint="What the first sync will copy each way.">
+        {ghost && mode === "existing" && github ? (
+          <PreviewSummary ghost={ghost} github={github} />
+        ) : (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{mode === "create" ? "The new repository starts empty: everything on Ghost is copied to it." : "Pick both repositories to see what will be copied."}</p>
+        )}
+      </Step>
 
-      {start.error && (
-        <p className="text-sm text-red-600">
-          {start.error.message}{" "}
-          {start.error instanceof ApiError && start.error.installUrl && (
-            <a href={start.error.installUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-              Install the app
-            </a>
-          )}
-        </p>
-      )}
-      <div>
-        <Button disabled={!ready || start.isPending} onClick={submit}>
-          {start.isPending ? "Starting…" : "Start sync"}
-        </Button>
+      <div className="flex flex-col gap-3 bg-zinc-50 px-6 py-4 dark:bg-zinc-900">
+        {start.error && (
+          <Callout tone="danger" title="The sync was not started">
+            {start.error.message}{" "}
+            {start.error instanceof ApiError && start.error.installUrl && (
+              <a href={start.error.installUrl} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-4">
+                Install the app
+              </a>
+            )}
+          </Callout>
+        )}
+        <div className="flex justify-end gap-2">
+          <Link to="/" className={buttonClass("ghost")}>
+            Cancel
+          </Link>
+          <Button disabled={!ready || start.isPending} onClick={submit}>
+            {start.isPending ? "Starting…" : "Start sync"}
+          </Button>
+        </div>
       </div>
-    </div>
+    </Panel>
   );
 }

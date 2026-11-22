@@ -1,14 +1,19 @@
 import type { SyncStatus } from "@/lib/api.ts";
 
-const LOOK: Record<SyncStatus, { label: string; className: string }> = {
-  active: { label: "Healthy", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" },
-  backfilling: { label: "Backfilling", className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300" },
-  paused: { label: "Paused", className: "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300" },
-  disconnected: { label: "Disconnected", className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
-  error: { label: "Error", className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" },
+const LOOK: Record<SyncStatus, { label: string; dot: string }> = {
+  active: { label: "Healthy", dot: "bg-emerald-500" },
+  backfilling: { label: "First sync running", dot: "bg-sky-500 animate-pulse" },
+  paused: { label: "Paused", dot: "bg-zinc-400" },
+  disconnected: { label: "Disconnected", dot: "bg-amber-500" },
+  error: { label: "Error", dot: "bg-red-500" },
 };
 
 export function StatusBadge({ status }: { status: SyncStatus }) {
-  const { label, className } = LOOK[status];
-  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
+  const { label, dot } = LOOK[status];
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium whitespace-nowrap text-zinc-700 dark:text-zinc-300">
+      <span aria-hidden className={`size-2 rounded-full ${dot}`} />
+      {label}
+    </span>
+  );
 }

@@ -1,4 +1,5 @@
 import type { FlaggedRef } from "@/lib/api.ts";
+import { Callout } from "../ui/callout.tsx";
 
 const short = (sha: string | null) => sha?.slice(0, 7) ?? "deleted";
 
@@ -6,18 +7,18 @@ const short = (sha: string | null) => sha?.slice(0, 7) ?? "deleted";
 export function FlaggedRefs({ refs }: { refs: FlaggedRef[] }) {
   if (refs.length === 0) return null;
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="font-medium">Needs a person</h2>
-      <ul className="divide-y divide-neutral-200 rounded-lg border border-amber-300 dark:divide-neutral-800 dark:border-amber-800">
+    <Callout tone="warning" title={refs.length === 1 ? "1 branch needs a person" : `${refs.length} branches need a person`}>
+      <p>Both sides changed these, so neither was overwritten. Merge one side into the other and syncing resumes.</p>
+      <ul className="mt-3 flex flex-col gap-2">
         {refs.map((ref) => (
-          <li key={ref.name} className="flex flex-col gap-1 px-4 py-3 text-sm">
-            <span className="font-mono">{ref.name.replace(/^refs\/(heads|tags)\//, "")}</span>
-            <span className="text-neutral-500">
-              Ghost at <code>{short(ref.ghost)}</code>, GitHub at <code>{short(ref.github)}</code> · {ref.reason}
+          <li key={ref.name} className="flex flex-col gap-0.5 rounded-md bg-white/60 px-3 py-2 dark:bg-black/20">
+            <span className="font-mono text-[13px] font-medium">{ref.name.replace(/^refs\/(heads|tags)\//, "")}</span>
+            <span className="text-xs">
+              Ghost at <code className="font-mono">{short(ref.ghost)}</code> · GitHub at <code className="font-mono">{short(ref.github)}</code> · {ref.reason}
             </span>
           </li>
         ))}
       </ul>
-    </section>
+    </Callout>
   );
 }
