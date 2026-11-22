@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { withMarker } from "../format.ts";
 import { writes } from "../lib/fake-rest.ts";
+import { RestError } from "../rest.ts";
 import { ghostNodeId, testContext } from "../lib/test-context.ts";
 import { ghostKeyOfNodeId } from "./issues.ts";
 import { deleteComment, syncComment } from "./comments.ts";
@@ -69,6 +70,24 @@ describe("syncComment", () => {
     await syncComment(ctx, "github", 5, "9001");
     expect(writes(ctx.ghost)).toEqual([]);
     expect(ctx.store.activity).toEqual([]);
+  });
+
+  test("linked: an edit on our copy that Ghost refuses to copy onto its author's original is logged once, and the original's text wins", async () => {
+    const original = { ...ghostComment, id: 301, body: "first", updated_at: "2026-11-22T17:00:00Z" };
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: withMarker("edited on GitHub", "ghost", "bob"), user: { login: "ghost-sync[bot]" }, updated_at: "2026-11-22T17:10:00Z" }, "PATCH /repos/acme-gh/app/issues/comments/9001": {} },
+      ghost: {
+        "GET /repos/acme/app/issues/comments/301": original,
+        "PATCH /repos/acme/app/issues/comments/301": () => {
+          throw new RestError(403, { message: "Only its author can edit a comment" });
+        },
+      },
+    });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001", synced: { body: "first" } });
+    await syncComment(ctx, "github", 2, "9001");
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ direction: "ghost", kind: "comment", error: "403 Only its author can edit a comment" })]);
+    await syncComment(ctx, "ghost", 2, uuid, original);
+    expect(writes(ctx.github)).toEqual([{ method: "PATCH", path: "/repos/acme-gh/app/issues/comments/9001", body: { body: withMarker("first", "ghost", "bob") } }]);
   });
 
   test("linked: a copy that is gone is logged and skipped", async () => {

@@ -43,8 +43,14 @@ export async function followBody(ctx: SyncContext, to: Side, kind: LinkKind, lin
   }
   const { write, agreed } = mergeFields({ body: readMarker(source.body ?? "").body }, { body: readMarker(target.body ?? "").body }, link.synced, isNewer(source, target));
   if ("body" in write) {
-    await ctx.rest[to].request("PATCH", path, { body });
-    await done(ctx, to, kind, `Edited the copy of ${what}`);
+    try {
+      await ctx.rest[to].request("PATCH", path, { body });
+      await done(ctx, to, kind, `Edited the copy of ${what}`);
+    } catch (error) {
+      // Ghost lets only a comment's author edit it, so an edit made on our copy cannot reach a person's original; saving the edit as agreed lets the original's text flow back onto the copy instead of failing every pass.
+      if (!(error instanceof RestError) || error.status !== 403) throw error;
+      await skipped(ctx, to, kind, `Could not copy an edit onto ${what}; its text stays as its author wrote it`, error);
+    }
   }
   await ctx.store.saveLink({ ...link, synced: agreed });
 }
