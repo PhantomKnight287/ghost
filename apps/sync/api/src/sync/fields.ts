@@ -2,6 +2,14 @@ import type { SyncedFields } from "../store.ts";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+const isDiffer = (base: unknown): base is { differ: unknown[] } => typeof base === "object" && base !== null && !Array.isArray(base) && "differ" in base;
+const unchanged = (value: unknown, base: unknown) => (isDiffer(base) ? base.differ.some((each) => same(each, value)) : same(value, base));
+
+/** The agreed state of two items paired as they stand, such as twin issues a person opened on both sides: equal fields agree, and differing ones are agreed to differ, so pairing writes nothing until a person changes one side. */
+export function pairedFields(a: SyncedFields, b: SyncedFields): SyncedFields {
+  return Object.fromEntries(Object.entries(a).map(([key, value]) => [key, same(value, b[key]) ? value : { differ: [value, b[key]] }])) as SyncedFields;
+}
+
 /** Whether `source` changed at or after `target`; an item without a timestamp counts as newer, so it is never silently dropped. */
 export function isNewer(source: { updated_at?: string }, target: { updated_at?: string }) {
   if (!source.updated_at || !target.updated_at) return true;
@@ -17,8 +25,8 @@ export function mergeFields(source: SyncedFields, target: SyncedFields, base: Sy
       agreed[key] = value;
       continue;
     }
-    const sourceMoved = !base || !same(value, base[key]);
-    const targetMoved = !base || !same(target[key], base[key]);
+    const sourceMoved = !base || !unchanged(value, base[key]);
+    const targetMoved = !base || !unchanged(target[key], base[key]);
     if (sourceMoved && (!targetMoved || sourceIsNewer)) {
       write[key] = value;
       agreed[key] = value;

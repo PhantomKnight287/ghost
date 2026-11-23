@@ -2,7 +2,7 @@ import { readMarker, withMarker } from "../format.ts";
 import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { repoPath, type SyncContext } from "./context.ts";
-import { describeChanges, isNewer, mergeFields } from "./fields.ts";
+import { describeChanges, isNewer, mergeFields, pairedFields } from "./fields.ts";
 import { createOnce, done, isNotFound, skipped } from "./write.ts";
 
 export type Label = { name: string; color: string; description: string | null };
@@ -45,6 +45,33 @@ export async function ensureLabel(ctx: SyncContext, to: Side, label: Label) {
   }
 }
 
+/** Each run lists a side's issues once; a reconcile asks for twins of every issue it visits. */
+const issueLists = new WeakMap<object, Promise<Issue[]>>();
+
+/**
+ * The issue on `side` a person opened by hand as the twin of one on the other side, as people did before Ghost Sync: the only unlinked issue with that exact title that Ghost Sync did not write. Two or more such issues are no twin, so the issue is copied instead.
+ */
+async function findTwinIssue(ctx: SyncContext, side: Side, title: string) {
+  let listed = issueLists.get(ctx.rest[side]);
+  if (!listed) {
+    listed = (async () => {
+      const issues: Issue[] = [];
+      try {
+        for await (const issue of ctx.rest[side].paginate<Issue>(path(ctx, side, "/issues?state=all"))) issues.push(issue);
+      } catch (error) {
+        // A repository that cannot be listed has no twins to find; the create that follows reports the real problem.
+        if (!isNotFound(error)) throw error;
+      }
+      return issues;
+    })();
+    issueLists.set(ctx.rest[side], listed);
+  }
+  const candidates = (await listed).filter((issue) => !issue.pull_request && issue.user.login !== ctx.bot[side] && issue.title === title);
+  const unlinked = [];
+  for (const issue of candidates) if (!(await ctx.store.findLink(ctx.sync.id, "issue", side, String(issue.number)))) unlinked.push(issue);
+  return unlinked.length === 1 ? unlinked[0] : undefined;
+}
+
 /**
  * Brings issue `number` on `from` into agreement on the other side and returns the counterpart's number, or null when nothing was copied: the source is gone, is a pull request not yet linked, or is our own copy with no original.
  */
@@ -62,6 +89,15 @@ export async function syncIssue(ctx: SyncContext, from: Side, number: number): P
   const link = await ctx.store.findLink(ctx.sync.id, "issue", from, String(number));
   // Pull requests are created by `syncPull`, which knows their branches.
   if (!link && (source.pull_request || source.user.login === ctx.bot[from])) return null;
+  if (!link) {
+    const twin = await findTwinIssue(ctx, to, source.title);
+    if (twin) {
+      const ids = from === "ghost" ? { ghostId: String(number), githubId: String(twin.number) } : { ghostId: String(twin.number), githubId: String(number) };
+      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids, synced: pairedFields(issueFields(source), issueFields(twin)) });
+      await done(ctx, to, "issue", `Paired ${SIDE_NAME[from]} issue #${number} with its twin, ${SIDE_NAME[to]} issue #${twin.number}`);
+      return twin.number;
+    }
+  }
 
   for (const label of source.labels) await ensureLabel(ctx, to, label);
   const fields = { title: source.title, body: copiedBody(ctx, from, source.user.login, source.body), labels: source.labels.map((l) => l.name) };

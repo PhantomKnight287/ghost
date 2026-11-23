@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { withMarker } from "../src/format.ts";
+import { git } from "./fake-host.ts";
 import { BOTS, databaseUrl, startWorld, twoRepositories, type World } from "./harness.ts";
 
 describe.skipIf(!databaseUrl)("pairing and the first sync", () => {
@@ -59,6 +60,38 @@ describe.skipIf(!databaseUrl)("pairing and the first sync", () => {
     expect(sync).toMatchObject({ status: "active", lastError: null });
     expect(sync?.lastReconciledAt).not.toBeNull();
     expect((await world.store.listActivity(id, 50)).filter((entry) => entry.error)).toEqual([]);
+  });
+
+  test("twins a person opened on both sides before the sync are paired, not copied, and follow each other from then on", async () => {
+    const { ghostRepo, githubRepo } = twoRepositories(world);
+    const main = world.ghost.push("acme/app", "main", "first");
+    const feat = world.ghost.push("acme/app", "feat", "feature work", { from: main });
+    world.github.fetchFrom("acme-gh/app", ghostRepo.bare);
+    git(githubRepo.bare, "update-ref", "refs/heads/main", main);
+    git(githubRepo.bare, "update-ref", "refs/heads/feat", feat);
+    const ghost = world.ghost.as("alice");
+    const github = world.github.as("alice");
+    await ghost.request("POST", "/repos/acme/app/issues", { title: "Twin", body: "GitHub twin: #1" });
+    await github.request("POST", "/repos/acme-gh/app/issues", { title: "Twin", body: "Ghost twin: #1" });
+    await github.request("PATCH", "/repos/acme-gh/app/issues/1", { state: "closed" });
+    await ghost.request("POST", "/repos/acme/app/pulls", { title: "Add feature", body: "GitHub twin: #2", head: "feat", base: "main" });
+    await github.request("POST", "/repos/acme-gh/app/pulls", { title: "Add feature", body: "Ghost twin: #2", head: "feat", base: "main" });
+    await world.settle();
+
+    await world.pair();
+    const items = (repo: typeof ghostRepo) => [...repo.items.values()].map(({ number, title, body, state, author }) => ({ number, title, body, state, author }));
+    expect(items(ghostRepo)).toEqual([
+      { number: 1, title: "Twin", body: "GitHub twin: #1", state: "open", author: "alice" },
+      { number: 2, title: "Add feature", body: "GitHub twin: #2", state: "open", author: "alice" },
+    ]);
+    expect(items(githubRepo)).toEqual([
+      { number: 1, title: "Twin", body: "Ghost twin: #1", state: "closed", author: "alice" },
+      { number: 2, title: "Add feature", body: "Ghost twin: #2", state: "open", author: "alice" },
+    ]);
+
+    await ghost.request("PATCH", "/repos/acme/app/issues/1", { title: "Twin, renamed" });
+    await world.settle();
+    expect(githubRepo.items.get(1)).toMatchObject({ title: "Twin, renamed", body: "Ghost twin: #1", state: "closed" });
   });
 
   test("a second full reconcile copies nothing again", async () => {

@@ -36,6 +36,52 @@ describe("syncIssue", () => {
     ]);
   });
 
+  describe("an issue that already has a twin on the other side", () => {
+    const twin = (overrides: Record<string, unknown> = {}) => ({ number: 12, node_id: "I_g12", title: "Crash on save", body: "Steps\n\nGitHub twin: #5", state: "closed", user: { login: "bob" }, labels: [], ...overrides });
+
+    test("is paired instead of copied, and nothing is written to either side", async () => {
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue() },
+        ghost: { "GET /repos/acme/app/issues?state=all": [{ ...twin({ number: 11, title: "Other" }) }, twin()] },
+      });
+      expect(await syncIssue(ctx, "github", 5)).toBe(12);
+      expect(writes(ctx.ghost)).toEqual([]);
+      expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toMatchObject({ ghostId: "12" });
+      expect(ctx.store.activity.map((a) => [a.direction, a.summary])).toEqual([["ghost", "Paired GitHub issue #5 with its twin, Ghost issue #12"]]);
+    });
+
+    test("the pair's differing body and state stay as they are on the next pass from either side", async () => {
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue(), "GET /repos/acme-gh/app/labels/bug": bug },
+        ghost: { "GET /repos/acme/app/issues?state=all": [twin()], "GET /repos/acme/app/issues/12": twin(), ...ghostLabelExists },
+      });
+      await syncIssue(ctx, "github", 5);
+      await syncIssue(ctx, "github", 5);
+      await syncIssue(ctx, "ghost", 12);
+      expect([...writes(ctx.ghost), ...writes(ctx.github)].filter((c) => c.path.includes("/issues"))).toEqual([]);
+    });
+
+    test("our own copies, pull requests and already linked issues are not twins", async () => {
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+        ghost: {
+          "GET /repos/acme/app/issues?state=all": [twin({ number: 10, user: { login: "ghost-sync[bot]" } }), twin({ number: 11, pull_request: {} }), twin()],
+          "POST /repos/acme/app/issues": { number: 13 },
+        },
+      });
+      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "4" });
+      expect(await syncIssue(ctx, "github", 5)).toBe(13);
+    });
+
+    test("two issues with the same title are no twin, so the issue is copied", async () => {
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+        ghost: { "GET /repos/acme/app/issues?state=all": [twin({ number: 11 }), twin()], "POST /repos/acme/app/issues": { number: 13 } },
+      });
+      expect(await syncIssue(ctx, "github", 5)).toBe(13);
+    });
+  });
+
   test("a null body copies as empty", async () => {
     const ctx = testContext({
       github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ body: null, labels: [] }) },
@@ -267,7 +313,8 @@ describe("a create whose answer was lost", () => {
       },
     });
     await expect(syncIssue(ctx, "github", 5)).rejects.toMatchObject({ status: 422 });
-    expect(ctx.ghost.calls.map((c) => c.method)).toEqual(["POST"]);
+    // The GET is the twin lookup before the create; nothing is looked for after it.
+    expect(ctx.ghost.calls.map((c) => c.method)).toEqual(["GET", "POST"]);
   });
 });
 

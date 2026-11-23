@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { describeChanges, isNewer, mergeFields } from "./fields.ts";
+import { describeChanges, isNewer, mergeFields, pairedFields } from "./fields.ts";
 
 describe("mergeFields", () => {
   const base = { title: "T", state: "open" };
@@ -46,4 +46,25 @@ test("describeChanges names each change", () => {
   ]);
   expect(describeChanges({ state: "open", labels: ["bug"], draft: true }, "Ghost issue #2")).toEqual(["Reopened Ghost issue #2", "Set the labels of Ghost issue #2 to bug", "Marked Ghost issue #2 as a draft"]);
   expect(describeChanges({ milestone: "v1" }, "Ghost issue #2")).toEqual(["Updated milestone of Ghost issue #2"]);
+
+});
+
+describe("twins paired as they stand", () => {
+  const ghost = { title: "T", body: "GitHub twin: #169", state: "open" };
+  const github = { title: "T", body: "Ghost twin: #138", state: "closed" };
+  const base = pairedFields(ghost, github);
+
+  test("fields that differ are agreed to differ, so neither pass writes", () => {
+    expect(mergeFields(ghost, github, base, true).write).toEqual({});
+    expect(mergeFields(github, ghost, base, true).write).toEqual({});
+  });
+
+  test("an edit on one side after pairing is copied, and both then agree", () => {
+    const edited = { ...ghost, body: "Rewritten" };
+    expect(mergeFields(edited, github, base, true)).toEqual({ write: { body: "Rewritten" }, agreed: { title: "T", body: "Rewritten", state: { differ: ["open", "closed"] } } });
+  });
+
+  test("fields already equal are agreed as they are", () => {
+    expect(base.title).toBe("T");
+  });
 });

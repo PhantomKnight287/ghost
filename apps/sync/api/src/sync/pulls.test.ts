@@ -67,6 +67,20 @@ describe("syncPull, unlinked", () => {
     expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8" });
   });
 
+  test("a pull request with a twin on the same branches is paired, not copied, and its branches are left alone", async () => {
+    const twin = githubPull({ user: { login: "alice" }, body: "Ghost twin: #3", state: "closed", merged: true, head: { ref: "feat", sha: "old", repo: { id: 2 } } });
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull() },
+      github: { "GET /repos/acme-gh/app/pulls?state=all&head=acme-gh:feat": [githubPull({ number: 7, base: { ref: "dev", sha: "d1", repo: { id: 2 } } }), githubPull({ number: 9 }), twin] },
+    });
+    await syncPull(ctx, "ghost", 3);
+    expect(ctx.git.pushes).toEqual([]);
+    expect(writes(ctx.github)).toEqual([]);
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8" });
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Paired Ghost pull request #3 with its twin, GitHub pull request #8"]);
+  });
+
   test("GitHub to Ghost the same way", async () => {
     const ctx = testContext({
       git: fakeGit({ github: { [feat]: "h1", [main]: "m1" }, ghost: { [main]: "m1" } }),

@@ -6,7 +6,9 @@ export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | 
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
 /** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */
 /** An item's fields as both sides last agreed on them, so a later pass can tell which side changed since. */
-export type SyncedFields = Record<string, string | boolean | string[] | null>;
+type SyncedValue = string | boolean | string[] | null;
+/** A field's agreed value, or the two values paired twins agreed to keep apart until either side changes. */
+export type SyncedFields = Record<string, SyncedValue | { differ: SyncedValue[] }>;
 export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean; posted?: string[] };
 
 export const sync = pgTable("sync", {
