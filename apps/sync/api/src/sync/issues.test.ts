@@ -90,6 +90,23 @@ describe("syncIssue", () => {
       expect((await ctx.store.findLink(ctx.sync.id, "issue", "github", "5"))?.synced).toMatchObject({ body: { differ: { ghost: "current", github: "Steps" } } });
     });
 
+    test("a listing that failed is asked for again by the next issue in the run", async () => {
+      let attempts = 0;
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+        ghost: {
+          "GET /repos/acme/app/issues?state=all": () => {
+            attempts += 1;
+            if (attempts === 1) throw new RestError(502, { message: "Bad Gateway" });
+            return [twin()];
+          },
+          "GET /repos/acme/app/issues/12": twin(),
+        },
+      });
+      await expect(syncIssue(ctx, "github", 5)).rejects.toMatchObject({ status: 502 });
+      expect(await syncIssue(ctx, "github", 5)).toBe(12);
+    });
+
     test("two issues with the same title are no twin, so the issue is copied", async () => {
       const ctx = testContext({
         github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },

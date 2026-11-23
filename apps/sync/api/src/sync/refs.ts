@@ -66,7 +66,6 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
   }
   if (action.kind === "diverged") {
     await flag(ctx, name, row?.diverged ?? null, { ghost, github, reason: "diverged" });
-    await forgetSetup(ctx, name);
     return "done";
   }
 
@@ -82,12 +81,12 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
     return "done";
   }
   if (pushed.reason === "lease") return "lease";
+  // The setup base stays until a push lands, so a retry after the host lifts its rule still knows which side moved.
   await flag(ctx, name, row?.diverged ?? null, { ghost, github, reason: `rejected: ${pushed.message}` });
-  await forgetSetup(ctx, name);
   return "done";
 }
 
-/** Once a ref has been synced, where it stood at setup says nothing more: a deletion synced since removes its base, and the setup commit must not come back as one. */
+/** Once a ref has synced, where it stood at setup says nothing more: a deletion synced since removes its base, and the setup commit must not come back as one. */
 async function forgetSetup(ctx: SyncContext, name: string) {
   const setup = ctx.sync.refsAtSetup;
   if (!setup || (!(name in setup.ghost) && !(name in setup.github))) return;

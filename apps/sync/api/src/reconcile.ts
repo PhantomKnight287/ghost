@@ -107,7 +107,13 @@ export async function reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promi
       await store.addActivity({ syncId: sync.id, direction: null, kind: "reconcile", summary: "Sync started without history: only what happens from now on is copied", error: null });
       return;
     }
-    await syncRefs(run);
+    const refs = await syncRefs(run);
+    // A failed status write is dropped with its job; the default branch has no pull request to bring it back, so each pass copies its head's statuses.
+    for (const side of SIDES) {
+      const { default_branch } = await run.rest[side].request<{ default_branch: string }>("GET", repoPath(run, side));
+      const head = refs[side].get(`refs/heads/${default_branch}`);
+      if (head) await syncStatuses(run, side, head);
+    }
     for (const side of SIDES) {
       for await (const item of run.rest[side].paginate<Listed>(`${repoPath(run, side)}/issues?state=all${since}`)) {
         try {

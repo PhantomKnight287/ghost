@@ -89,6 +89,18 @@ describe("syncRefs", () => {
       expect((await ctx.store.getSync(ctx.sync.id))?.refsAtSetup).toEqual({ ghost: { "refs/heads/old": "o1" }, github: { "refs/heads/old": "o2", "refs/heads/gh-only": "g" } });
     });
 
+    test("a rejected force-push keeps the setup base, so it is retried once the host allows it instead of flagged as diverged", async () => {
+      // b does not contain a: without the setup base, the two sides look diverged.
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: { ...setup.ghost, [main]: "b" }, github: setup.github }) });
+      ctx.git.rejects.set(`github ${main}`, "protected branch");
+      await syncRefs(ctx);
+      ctx.git.rejects.clear();
+      await syncRefs(ctx);
+      const attempt = { side: "github", ref: main, sha: "b", expected: "a" };
+      expect(ctx.git.pushes).toEqual([attempt, attempt]);
+      expect((await ctx.store.getRef(ctx.sync.id, main))?.diverged).toBeNull();
+    });
+
     test("a ref a webhook names is synced even if it has not moved", async () => {
       const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
       await syncRefs(ctx, ["refs/heads/gh-only"]);

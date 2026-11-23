@@ -94,6 +94,17 @@ describe("syncStatuses", () => {
     expect(writes(ctx.ghost).map((c) => c.body)).toEqual([{ context: "Vercel", state: "success", description: "Vercel success", target_url: "https://deploy.example.com/Vercel" }]);
   });
 
+  test("without backfill, a status from before the sync began is history, even when a context's newest", async () => {
+    const started = new Date("2026-11-20T00:00:00Z");
+    const ctx = testContext({
+      sync: { backfill: false, createdAt: started },
+      github: { "GET /repos/acme-gh/app/commits/h1/statuses": [status("Vercel", "success", "vercel[bot]", { created_at: "2026-11-19T00:00:00Z" }), status("Ghost - api", "success", "railway-app[bot]", { created_at: "2026-11-21T00:00:00Z" })] },
+      ghost: { ...onGhost, "GET /repos/acme/app/commits/h1/statuses": [], "POST /repos/acme/app/statuses/h1": {} },
+    });
+    await syncStatuses(ctx, "github", "h1");
+    expect(writes(ctx.ghost).map((c) => (c.body as { context: string }).context)).toEqual(["Ghost - api"]);
+  });
+
   test("a commit the other side lacks yet is skipped silently for reconcile", async () => {
     const ctx = testContext({ github: { "GET /repos/acme-gh/app/commits/h1/statuses": [status("Vercel", "success", "vercel[bot]")] } });
     await syncStatuses(ctx, "github", "h1");

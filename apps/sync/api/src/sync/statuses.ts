@@ -2,19 +2,20 @@ import { RestError } from "../rest.ts";
 import { other, type Side } from "../side.ts";
 import { commitExists } from "./checks.ts";
 import { repoPath, type SyncContext } from "./context.ts";
+import { isHistory } from "./history.ts";
 import { done, isNotFound, skipped } from "./write.ts";
 
-type Status = { context: string; state: string; description: string | null; target_url: string | null; creator: { login: string } | null };
+type Status = { context: string; state: string; description: string | null; target_url: string | null; creator: { login: string } | null; created_at?: string };
 
 /** GitHub treats contexts as case-insensitive, so `CI` and `ci` are one context. */
 const contextKey = (status: Status) => status.context.toLowerCase();
 
 /** The newest status of each context on `sha`, or none when the commit is not there. Both hosts list statuses newest first. */
-async function latestByContext(ctx: SyncContext, side: Side, sha: string) {
+async function latestByContext(ctx: SyncContext, side: Side, sha: string, keep: (status: Status) => boolean = () => true) {
   const latest = new Map<string, Status>();
   try {
     for await (const status of ctx.rest[side].paginate<Status>(`${repoPath(ctx, side)}/commits/${sha}/statuses`)) {
-      if (!latest.has(contextKey(status))) latest.set(contextKey(status), status);
+      if (keep(status) && !latest.has(contextKey(status))) latest.set(contextKey(status), status);
     }
   } catch (error) {
     // GitHub answers 422 "No commit found for SHA" for a commit it has never seen.
@@ -32,7 +33,8 @@ const same = (a: Status, b: Status) => a.state === b.state && (a.description || 
  */
 export async function syncStatuses(ctx: SyncContext, from: Side, sha: string) {
   const to = other(from);
-  const source = [...(await latestByContext(ctx, from, sha)).values()].filter((status) => status.creator?.login !== ctx.bot[from]);
+  // A status from before a sync without backfill began is history, even on a commit worked on since.
+  const source = [...(await latestByContext(ctx, from, sha, (status) => !isHistory(ctx, null, status.created_at))).values()].filter((status) => status.creator?.login !== ctx.bot[from]);
   if (source.length === 0) return;
   // The commit reaches the other side with its branch, and pushing it there copies its statuses.
   if (!(await commitExists(ctx, to, sha))) return;

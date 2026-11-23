@@ -65,6 +65,8 @@ async function findTwinIssue(ctx: SyncContext, side: Side, title: string) {
       return issues;
     })();
     issueLists.set(ctx.rest[side], listed);
+    // A failed listing is not kept, so the next issue in the run asks again.
+    listed.catch(() => issueLists.delete(ctx.rest[side]));
   }
   const isTwin = (issue: Issue) => !issue.pull_request && issue.user.login !== ctx.bot[side] && issue.title === title;
   const unlinked = [];

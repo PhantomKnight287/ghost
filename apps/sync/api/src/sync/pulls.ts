@@ -153,7 +153,18 @@ async function findTwinPull(ctx: SyncContext, side: Side, source: Pull) {
     if (!(await ctx.store.findLink(ctx.sync.id, "pull", side, String(pull.number)))) candidates.push(pull);
   }
   const titled = candidates.length > 1 ? candidates.filter((pull) => pull.title === source.title) : candidates;
-  return titled.length === 1 ? titled[0] : undefined;
+  const [found] = titled;
+  if (titled.length !== 1 || !found) return undefined;
+  // The pair's agreed state must be the twin as it is now, and it must still be a twin.
+  let current: Pull;
+  try {
+    current = await ctx.rest[side].request<Pull>("GET", `${repoPath(ctx, side)}/pulls/${found.number}`);
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    return undefined;
+  }
+  const stillTwin = current.user.login !== ctx.bot[side] && current.head.ref === source.head.ref && current.base.ref === source.base.ref && (candidates.length === 1 || current.title === source.title);
+  return stillTwin ? current : undefined;
 }
 
 async function createPull(ctx: SyncContext, from: Side, source: Pull, head: string) {

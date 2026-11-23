@@ -133,6 +133,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     full_name: repo.fullName,
     owner: { login: repo.owner },
     private: repo.private,
+    default_branch: "main",
     permissions: { admin: viewer ? repo.admins.has(viewer) : false },
   });
   const itemJson = (repo: Repo, item: Item) => ({

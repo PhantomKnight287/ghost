@@ -159,6 +159,17 @@ describe("reconcileSync", () => {
     expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Sync started without history: only what happens from now on is copied"]);
   });
 
+  test("each pass copies the statuses on each side's default branch head, which no pull request brings back", async () => {
+    const ctx = firstSync(
+      { "GET /repos/acme/app/commits/m1": { sha: "m1" }, "GET /repos/acme/app/commits/m1/statuses": [], "POST /repos/acme/app/statuses/m1": {} },
+      { "GET /repos/acme-gh/app/commits/m1/statuses": [{ context: "Ghost - api", state: "success", description: null, target_url: null, creator: { login: "railway-app[bot]" } }] },
+    );
+    ctx.git.repos.ghost.set("refs/heads/main", "m1");
+    ctx.git.repos.github.set("refs/heads/main", "m1");
+    await reconcileSync(ctx, owner);
+    expect(writes(ctx.ghost).filter((c) => c.path === "/repos/acme/app/statuses/m1").map((c) => c.body)).toEqual([{ context: "Ghost - api", state: "success" }]);
+  });
+
   test("later runs list only what changed since a little before the last one began", async () => {
     const last = new Date("2026-11-01T00:05:00.000Z");
     const since = "2026-11-01T00:00:00.000Z";
