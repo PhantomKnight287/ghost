@@ -101,6 +101,13 @@ describe("syncRefs", () => {
       expect((await ctx.store.getRef(ctx.sync.id, main))?.diverged).toBeNull();
     });
 
+    test("a ref a webhook names that both sides still hold at setup records that commit as its base, so pull requests on it count as agreed", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
+      await syncRefs(ctx, [main]);
+      expect(ctx.git.pushes).toEqual([]);
+      expect(await ctx.store.getRef(ctx.sync.id, main)).toMatchObject({ baseSha: "a", diverged: null });
+    });
+
     test("a ref a webhook names is synced even if it has not moved", async () => {
       const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
       await syncRefs(ctx, ["refs/heads/gh-only"]);
