@@ -21,6 +21,8 @@ export function syncRow(overrides: Partial<SyncRow> = {}): SyncRow {
     lastError: null,
     disconnectReason: null,
     lastReconciledAt: now,
+    backfill: true,
+    refsAtSetup: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -30,8 +32,9 @@ export function syncRow(overrides: Partial<SyncRow> = {}): SyncRow {
 export type TestContext = SyncContext & { ghost: FakeRest; github: FakeRest; store: FakeStore; git: FakeGit };
 
 export function testContext(opts: { ghost?: Routes; github?: Routes; git?: FakeGit; sync?: Partial<SyncRow> } = {}): TestContext {
-  const ghost = fakeRest(opts.ghost);
-  const github = fakeRest(opts.github);
+  // Reconcile reads each repository's default branch.
+  const ghost = fakeRest({ "GET /repos/acme/app": { default_branch: "main" }, ...opts.ghost });
+  const github = fakeRest({ "GET /repos/acme-gh/app": { default_branch: "main" }, ...opts.github });
   const sync = syncRow(opts.sync);
   const store = fakeStore({ syncs: [sync] });
   const git = opts.git ?? fakeGit();

@@ -3,7 +3,7 @@ import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { repoPath, type SyncContext } from "./context.ts";
 import { copiedBody, ensureLabel, type Label } from "./issues.ts";
-import { describeChanges, isNewer, mergeFields } from "./fields.ts";
+import { describeChanges, isNewer, keptApartSince, mergeFields, pairedFields } from "./fields.ts";
 import { syncRefs } from "./refs.ts";
 import { createOnce, done, isNotFound, skipped } from "./write.ts";
 
@@ -82,6 +82,16 @@ export async function syncPull(ctx: SyncContext, from: Side, number: number) {
     return;
   }
 
+  if (!link && !fork) {
+    const twin = await findTwinPull(ctx, to, source);
+    if (twin) {
+      const ids = from === "ghost" ? { ghostId: String(number), githubId: String(twin.number) } : { ghostId: String(twin.number), githubId: String(number) };
+      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostRestId: null, ...ids, synced: pairedFields(from === "ghost" ? { ghost: pullFields(source), github: pullFields(twin) } : { ghost: pullFields(twin), github: pullFields(source) }), pairedAt: new Date() });
+      await done(ctx, to, "pull", `Paired ${SIDE_NAME[from]} pull request #${number} with its twin, ${SIDE_NAME[to]} pull request #${twin.number}`);
+      return;
+    }
+  }
+
   const head = `refs/heads/${source.head.ref}`;
   const base = `refs/heads/${source.base.ref}`;
   const refs = await syncRefs(ctx, fork ? [base] : [head, base]);
@@ -102,6 +112,8 @@ export async function syncPull(ctx: SyncContext, from: Side, number: number) {
 
   // A merge reaches the other side through its branches; the copy only needs closing when the host did not see the merge itself.
   if (source.merged) {
+    // A twin merged before pairing was agreed to differ from its open twin; only a merge since then is news.
+    if (keptApartSince(link.synced, "state", from, "closed")) return;
     if (target.merged || target.state === "closed" || !(await agreed(ctx, base))) return;
     await ctx.rest[to].request("POST", `${repoPath(ctx, to)}/issues/${counterpart}/comments`, { body: mergedText(from) });
     await ctx.rest[to].request("PATCH", `${repoPath(ctx, to)}/pulls/${counterpart}`, { state: "closed" });
@@ -109,7 +121,7 @@ export async function syncPull(ctx: SyncContext, from: Side, number: number) {
     return;
   }
 
-  const { write, agreed: synced } = mergeFields(pullFields(source), pullFields(target), link.synced, isNewer(source, target));
+  const { write, agreed: synced } = mergeFields(from, pullFields(source), pullFields(target), link.synced, isNewer(source, target));
   const { draft, labels, ...rest } = write;
   if (Object.keys(rest).length > 0) {
     await ctx.rest[to].request("PATCH", `${repoPath(ctx, to)}/pulls/${counterpart}`, "body" in rest ? { ...rest, body: copiedBody(ctx, from, source.user.login, source.body) } : rest);
@@ -121,6 +133,38 @@ export async function syncPull(ctx: SyncContext, from: Side, number: number) {
   if (labels !== undefined) await setLabels(ctx, to, counterpart, source.labels ?? []);
   for (const summary of describeChanges(write, `${SIDE_NAME[to]} pull request #${counterpart}`)) await done(ctx, to, "pull", summary);
   await ctx.store.saveLink({ ...link, synced });
+}
+
+/**
+ * The pull request on `side` a person opened by hand from the same branches as `source`, as people did before Ghost Sync: the only unlinked one Ghost Sync did not write, or, among several, the only one with the same title. None found means the pull request is copied instead.
+ */
+async function findTwinPull(ctx: SyncContext, side: Side, source: Pull) {
+  const listed: Pull[] = [];
+  try {
+    for await (const pull of ctx.rest[side].paginate<Pull>(`${repoPath(ctx, side)}/pulls?state=all&head=${encodeURIComponent(`${ctx.repo[side].owner}:${source.head.ref}`)}`)) listed.push(pull);
+  } catch (error) {
+    // A repository that cannot be listed has no twins to find; the create that follows reports the real problem.
+    if (!isNotFound(error)) throw error;
+    return undefined;
+  }
+  const candidates = [];
+  for (const pull of listed) {
+    if (pull.user.login === ctx.bot[side] || pull.base.ref !== source.base.ref) continue;
+    if (!(await ctx.store.findLink(ctx.sync.id, "pull", side, String(pull.number)))) candidates.push(pull);
+  }
+  const titled = candidates.length > 1 ? candidates.filter((pull) => pull.title === source.title) : candidates;
+  const [found] = titled;
+  if (titled.length !== 1 || !found) return undefined;
+  // The pair's agreed state must be the twin as it is now, and it must still be a twin.
+  let current: Pull;
+  try {
+    current = await ctx.rest[side].request<Pull>("GET", `${repoPath(ctx, side)}/pulls/${found.number}`);
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    return undefined;
+  }
+  const stillTwin = current.user.login !== ctx.bot[side] && current.head.ref === source.head.ref && current.base.ref === source.base.ref && (candidates.length === 1 || current.title === source.title);
+  return stillTwin ? current : undefined;
 }
 
 async function createPull(ctx: SyncContext, from: Side, source: Pull, head: string) {

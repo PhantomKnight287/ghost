@@ -6,7 +6,7 @@ This replaces `2026-10-14-github-sync-bot-design.md` (on branch `feat/github-syn
 
 ## Intent
 
-Any Ghost user signs in to Ghost Sync with Ghost, connects GitHub, picks a Ghost repository and a GitHub repository (an existing one, or a new one Ghost Sync creates), and sync starts. People keep working on whichever side they like; work done on one side appears on the other. A bot installed on the GitHub mirror reviews pull requests there; its reviews and comments appear on the Ghost pull request, and replies written on Ghost reach the bot on GitHub, so `@coderabbitai explain this` works entirely from Ghost. GitHub's check runs appear on the Ghost commit, so Ghost's tick matches GitHub's.
+Any Ghost user signs in to Ghost Sync with Ghost, connects GitHub, picks a Ghost repository and a GitHub repository (an existing one, or a new one Ghost Sync creates), and sync starts. People keep working on whichever side they like; work done on one side appears on the other. A bot installed on the GitHub mirror reviews pull requests there; its reviews and comments appear on the Ghost pull request, and replies written on Ghost reach the bot on GitHub, so `@coderabbitai explain this` works entirely from Ghost. GitHub's check runs and commit statuses (deploys from Railway, Vercel and the like) appear on the Ghost commit, so Ghost's tick matches GitHub's.
 
 Ghost Sync is an **outside customer of Ghost** (user decision, 2026-11-09). It has its own services, its own database and its own deploy, and talks to Ghost only through Ghost's public API as a Ghost App, exactly as CodeRabbit would. It shares no tables, no code paths and no secrets with `apps/api`. It dogfoods Ghost Apps (`2026-10-25-ghost-apps-design.md`) and the Checks API (`2026-11-06-checks-api-design.md`).
 
@@ -58,8 +58,8 @@ These would make the work a failure even if it technically works:
 | --- | --- | --- |
 | Registered by | The operator, once, on Ghost's settings (`/settings/apps/new`) | The operator, once, on GitHub |
 | Writes as | `ghost-sync[bot]` | `<slug>[bot]` |
-| Repository permissions | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `metadata: read` | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `metadata: read`, `administration: write` (to create repositories with the user's token) |
-| Events | `push`, `pull_request.*`, `issue.*` (including `issue.deleted`), `label.*`, `check_suite.requested`, `check_suite.rerequested`, `check_run.created`, `check_run.completed`, `check_run.rerequested`, `installation.*` | Push, Create, Delete, Pull request, Issues, Issue comment, Label, Pull request review, Pull request review comment, Pull request review thread, Check run, Installation, Installation repositories |
+| Repository permissions | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `statuses: write`, `metadata: read` | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `statuses: write`, `metadata: read`, `administration: write` (to create repositories with the user's token) |
+| Events | `push`, `pull_request.*`, `issue.*` (including `issue.deleted`), `label.*`, `check_suite.requested`, `check_suite.rerequested`, `check_run.created`, `check_run.completed`, `check_run.rerequested`, `commit_status.created`, `installation.*` | Push, Create, Delete, Pull request, Issues, Issue comment, Label, Pull request review, Pull request review comment, Pull request review thread, Check run, Status, Installation, Installation repositories |
 | User sign-in | Yes: this is how users log in | Yes: to link GitHub, list repositories and create a repository |
 | "Request user authorization during installation" | On | On |
 
@@ -137,6 +137,7 @@ Both ways, never with power: a review from one side lands on the other as a comm
 ### Checks
 
 - Check runs sync both ways (user decision, 2026-11-09): a run on a synced commit on one side is copied to the same commit on the other, same name, status, conclusion, title and summary, `details_url` pointing at the original run, updated in place as the original changes. A copied run appears under Ghost Sync's app on the other side, not the original app. Runs created by Ghost Sync itself (copies and the "Sync with GitHub" run) are never copied back.
+- Commit statuses sync both ways (user decision, 2026-11-23). Deploy services such as Railway and Vercel report through the Status API, not as check runs. For each context, the newest status on a synced commit is posted onto the same commit on the other side, with the same state, description and `target_url`, so "Details" opens the original deploy. Statuses are append-only, so no link is stored: the other side's newest status for that context shows whether it is already copied. Statuses Ghost Sync posted are never copied back. A context that someone else reports on the other side stays theirs and is not overwritten. GitHub Deployments have no Ghost equivalent; their statuses reach Ghost only when the deploy service also posts a commit status, as Railway and Vercel do.
 - **The "Sync with GitHub" check** (from the Checks design, 2026-11-06): on `check_suite.requested` for a commit on a synced Ghost repository, the app creates a run on that commit, `in_progress`, and completes it `success` once the commit is on GitHub, or `failure` with the reason (diverged, push rejected, installation missing). `check_run.rerequested` or `check_suite.rerequested` on that run, or on any copied run, means "sync again": reconcile the sync, then complete a fresh run. Re-running GitHub's own CI is not something Ghost Sync does.
 
 ### Issues, comments and labels
@@ -155,6 +156,9 @@ A new sync has no base for any ref. The first reconcile:
 2. **Open pull requests on both sides** (except fork pull requests on GitHub), with their reviews, review comments, comments and labels, are copied to the other side and linked. A pull request whose head or base ref is diverged is still created if both refs exist on the other side; otherwise it is skipped with an activity entry and picked up once the refs agree.
 3. **Open issues on both sides**, with comments and labels, are copied and linked.
 4. Closed issues and pull requests are copied too, by the same rules as open ones (user decision, 2026-11-09). A closed or merged pull request is created on the other side and then closed (with a "Merged on X" comment if it was merged) when the host accepts it. When the host refuses (head branch gone, or no commits between base and head, as for most merged pull requests), it is skipped with an activity entry (user decision, 2026-11-09). No placeholder issue is made.
+5. **Twins are paired, not copied** (user decision, 2026-11-23). People who kept both sides by hand before Ghost Sync have the same issue or pull request on each side. Before copying an unlinked item, Ghost Sync looks on the other side for its twin. For an issue, the twin is the only unlinked issue there with the exact same title. For a pull request, it is the only unlinked pull request from the same head branch into the same base, or, among several, the only one with the same title. Items Ghost Sync wrote are never twins. A twin is linked and nothing is written: fields that differ, such as bodies that link each other, are agreed to differ and stay as they are until a person changes one side. From then on the pair follows each other like any linked pair, but each twin keeps its own comments, reviews and line comments from before pairing: only those written after are copied. Without exactly one twin, the item is copied as before.
+
+**Skip history** (user decision, 2026-11-23). The new-sync form has a "Skip history" checkbox, off by default. With it on, the first run copies nothing: it records where every ref stands on each side and goes straight to active. From then on only work done after the sync started is copied. A ref is synced once someone moves it, or a webhook or pull request names it. An issue or pull request is copied once someone works on it, without the comments and reviews written before the sync started. Reconcile never looks back past the sync's start.
 
 The sync shows "Backfilling" until this finishes.
 
@@ -245,7 +249,7 @@ Both apps have one webhook URL each for every installation.
 Runs on start and every `RECONCILE_INTERVAL` seconds, for every active sync, one sync at a time (Claude's call: it keeps the per-side rate limits safe). Per sync:
 
 1. List all refs on both sides and apply the Code table to each, including refs deleted on one side since the last run (a ref with a base that is missing on one side).
-2. List issues and pull requests updated since `last_reconciled_at` (`since=` on both sides), with their comments, reviews and labels, and pass each to the same `sync/*` function. Check runs for the heads of open pull requests and default branch.
+2. List issues and pull requests updated since `last_reconciled_at` (`since=` on both sides), with their comments, reviews and labels, and pass each to the same `sync/*` function. Check runs and commit statuses for the heads of open pull requests; the default branch's arrive by webhook.
 3. The first run (no `last_reconciled_at`) is the First sync above.
 4. Check the creator still has admin on both repositories (see Lifecycle).
 

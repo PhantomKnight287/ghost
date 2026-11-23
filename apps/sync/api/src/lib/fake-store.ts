@@ -30,7 +30,7 @@ export function fakeStore(seed: { syncs?: SyncRow[] } = {}): FakeStore {
     },
     async saveLink(link) {
       store.links = store.links.filter((l) => !(l.syncId === link.syncId && l.kind === link.kind && (l.ghostId === link.ghostId || l.githubId === link.githubId)));
-      store.links.push({ ...link, synced: link.synced ?? null, updatedAt: new Date() });
+      store.links.push({ ...link, synced: link.synced ?? null, pairedAt: link.pairedAt ?? null, updatedAt: new Date() });
     },
     async deleteLink(syncId, kind, side, id) {
       store.links = store.links.filter((l) => !(l.syncId === syncId && l.kind === kind && idOf(l, side) === id));
@@ -85,7 +85,7 @@ export function fakeStore(seed: { syncs?: SyncRow[] } = {}): FakeStore {
     },
     async createSync(input) {
       const now = new Date();
-      const row: SyncRow = { ...input, id: crypto.randomUUID(), status: "backfilling", lastError: null, disconnectReason: null, lastReconciledAt: null, createdAt: now, updatedAt: now };
+      const row: SyncRow = { ...input, backfill: input.backfill ?? true, refsAtSetup: null, id: crypto.randomUUID(), status: "backfilling", lastError: null, disconnectReason: null, lastReconciledAt: null, createdAt: now, updatedAt: now };
       store.syncs.push(row);
       return row;
     },

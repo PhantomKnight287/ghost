@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { withMarker } from "../src/format.ts";
+import { git } from "./fake-host.ts";
 import { BOTS, databaseUrl, startWorld, twoRepositories, type World } from "./harness.ts";
 
 describe.skipIf(!databaseUrl)("pairing and the first sync", () => {
@@ -59,6 +60,74 @@ describe.skipIf(!databaseUrl)("pairing and the first sync", () => {
     expect(sync).toMatchObject({ status: "active", lastError: null });
     expect(sync?.lastReconciledAt).not.toBeNull();
     expect((await world.store.listActivity(id, 50)).filter((entry) => entry.error)).toEqual([]);
+  });
+
+  test("twins a person opened on both sides before the sync are paired, not copied, and follow each other from then on", async () => {
+    const { ghostRepo, githubRepo } = twoRepositories(world);
+    const main = world.ghost.push("acme/app", "main", "first");
+    const feat = world.ghost.push("acme/app", "feat", "feature work", { from: main });
+    world.github.fetchFrom("acme-gh/app", ghostRepo.bare);
+    git(githubRepo.bare, "update-ref", "refs/heads/main", main);
+    git(githubRepo.bare, "update-ref", "refs/heads/feat", feat);
+    const ghost = world.ghost.as("alice");
+    const github = world.github.as("alice");
+    await ghost.request("POST", "/repos/acme/app/issues", { title: "Twin", body: "GitHub twin: #1" });
+    await github.request("POST", "/repos/acme-gh/app/issues", { title: "Twin", body: "Ghost twin: #1" });
+    await github.request("PATCH", "/repos/acme-gh/app/issues/1", { state: "closed" });
+    await ghost.request("POST", "/repos/acme/app/pulls", { title: "Add feature", body: "GitHub twin: #2", head: "feat", base: "main" });
+    await github.request("POST", "/repos/acme-gh/app/pulls", { title: "Add feature", body: "Ghost twin: #2", head: "feat", base: "main" });
+    await world.github.as("coderabbitai[bot]").request("POST", "/repos/acme-gh/app/issues/2/comments", { body: "Summary from before pairing" });
+    await world.settle();
+
+    await world.pair();
+    const items = (repo: typeof ghostRepo) => [...repo.items.values()].map(({ number, title, body, state, author }) => ({ number, title, body, state, author }));
+    expect(items(ghostRepo)).toEqual([
+      { number: 1, title: "Twin", body: "GitHub twin: #1", state: "open", author: "alice" },
+      { number: 2, title: "Add feature", body: "GitHub twin: #2", state: "open", author: "alice" },
+    ]);
+    expect(items(githubRepo)).toEqual([
+      { number: 1, title: "Twin", body: "Ghost twin: #1", state: "closed", author: "alice" },
+      { number: 2, title: "Add feature", body: "Ghost twin: #2", state: "open", author: "alice" },
+    ]);
+
+    // Each twin keeps the comments it had before pairing; new ones follow.
+    expect(ghostRepo.comments).toEqual([]);
+    await github.request("POST", "/repos/acme-gh/app/issues/2/comments", { body: "After pairing" });
+    await ghost.request("PATCH", "/repos/acme/app/issues/1", { title: "Twin, renamed" });
+    await world.settle();
+    expect(ghostRepo.comments.map((comment) => comment.body)).toEqual([withMarker("After pairing", "github", "alice")]);
+    expect(githubRepo.items.get(1)).toMatchObject({ title: "Twin, renamed", body: "Ghost twin: #1", state: "closed" });
+  });
+
+  test("without backfill, nothing from before is copied, and work after it is", async () => {
+    const { ghostRepo, githubRepo, main } = await seeded();
+    world.ghost.push("acme/app", "stale", "old work", { from: main });
+    await world.settle();
+    const id = await world.pair("acme/app", "acme-gh/app", { backfill: false });
+    expect(await world.store.getSync(id)).toMatchObject({ status: "active", backfill: false });
+    expect(world.github.sha("acme-gh/app", "refs/heads/main")).toBeNull();
+    expect(githubRepo.items.size).toBe(1);
+    expect(ghostRepo.items.size).toBe(3);
+
+    const ghost = world.ghost.as("alice");
+    await ghost.request("POST", "/repos/acme/app/issues", { title: "New since", body: "Fresh" });
+    await world.ghost.as("carol").request("POST", "/repos/acme/app/issues/1/comments", { body: "Still broken" });
+    const feat = world.ghost.push("acme/app", "feat", "more work", { from: world.ghost.sha("acme/app", "refs/heads/feat") ?? undefined });
+    await world.settle();
+    await world.call("POST", `/api/syncs/${id}/resync`);
+    await world.settle();
+
+    const titles = [...githubRepo.items.values()].map((item) => item.title).sort();
+    // The push to feat is new work on its pull request, so the pull request comes across; its review from before stays behind.
+    expect(titles).toEqual(["Add feature", "Crash on save", "From GitHub", "New since"]);
+    expect(githubRepo.reviews).toEqual([]);
+    expect(githubRepo.reviewComments).toEqual([]);
+    const crash = [...githubRepo.items.values()].find((item) => item.title === "Crash on save");
+    expect(githubRepo.comments.filter((comment) => comment.number === crash?.number).map((comment) => comment.body)).toEqual([withMarker("Still broken", "ghost", "carol")]);
+    // main comes across as the copied pull request's base; a branch no one touched stays behind.
+    expect(world.github.sha("acme-gh/app", "refs/heads/feat")).toBe(feat);
+    expect(world.github.sha("acme-gh/app", "refs/heads/main")).toBe(main);
+    expect(world.github.sha("acme-gh/app", "refs/heads/stale")).toBeNull();
   });
 
   test("a second full reconcile copies nothing again", async () => {

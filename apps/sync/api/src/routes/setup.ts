@@ -33,6 +33,8 @@ const existing = z.object({ fullName });
 const SyncRequest = z.object({
   ghost: existing,
   github: z.union([existing, z.object({ create: z.object({ owner: z.string().min(1), name: z.string().min(1), private: z.boolean() }) })]),
+  /** False copies only what happens from now on. */
+  backfill: z.boolean().default(true),
 });
 const PreviewRequest = z.object({ ghost: existing, github: existing });
 
@@ -193,6 +195,7 @@ export function setupRoutes(deps: RouteDeps) {
         githubFullName: githubRepo.full_name,
         ghostInstallationId,
         githubInstallationId,
+        backfill: request.backfill,
       });
     } catch (error) {
       // Two requests pairing the same repository at once: the database's unique constraint decides.

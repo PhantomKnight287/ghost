@@ -13,6 +13,7 @@ const KIND: Record<string, string> = {
   review_comment: "Review comment",
   label: "Label",
   check_run: "Check run",
+  status: "Commit status",
   reconcile: "Sync",
   sync: "Sync",
   job: "Sync",

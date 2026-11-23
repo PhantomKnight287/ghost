@@ -22,6 +22,12 @@ describe("runAction", () => {
     expect(writes(ctx.github).map((c) => `${c.method} ${c.path}`)).toEqual(["DELETE /repos/acme-gh/app/labels/bug", "DELETE /repos/acme-gh/app/issues/comments/9001"]);
   });
 
+  test("a commit status reaches the status sync", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/commits/h1/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }] }, ghost: { "GET /repos/acme/app/commits/h1": { sha: "h1" }, "GET /repos/acme/app/commits/h1/statuses": [], "POST /repos/acme/app/statuses/h1": {} } });
+    await runAction(ctx, { kind: "status", from: "github", sha: "h1" }, noReconcile);
+    expect(writes(ctx.ghost).map((c) => `${c.method} ${c.path}`)).toEqual(["POST /repos/acme/app/statuses/h1"]);
+  });
+
   test("reconcile goes to the reconciler it is given", async () => {
     const ctx = testContext();
     const reconciled: string[] = [];

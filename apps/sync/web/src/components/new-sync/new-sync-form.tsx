@@ -19,6 +19,7 @@ export function NewSyncForm() {
   const [mode, setMode] = useState<"existing" | "create">("existing");
   const [github, setGithub] = useState("");
   const [created, setCreated] = useState<NewRepository>({ owner: "", name: "", private: true });
+  const [skipHistory, setSkipHistory] = useState(false);
 
   const start = useMutation({
     mutationFn: (body: NewSync) => api<{ id: string; installUrl?: string }>("/api/syncs", { method: "POST", body }),
@@ -30,7 +31,11 @@ export function NewSyncForm() {
 
   const ready = ghost !== "" && (mode === "existing" ? github !== "" : created.owner !== "" && created.name.trim() !== "");
   const submit = () =>
-    start.mutate({ ghost: { fullName: ghost }, github: mode === "existing" ? { fullName: github } : { create: { ...created, name: created.name.trim() } } });
+    start.mutate({
+      ghost: { fullName: ghost },
+      github: mode === "existing" ? { fullName: github } : { create: { ...created, name: created.name.trim() } },
+      backfill: !skipHistory,
+    });
 
   return (
     <Panel className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -57,8 +62,17 @@ export function NewSyncForm() {
         {mode === "existing" ? <RepositoryPicker side="github" value={github} onChange={setGithub} /> : <NewGitHubRepository value={created} onChange={setCreated} />}
       </Step>
 
-      <Step number={3} title="Review" hint="What the first sync will copy each way.">
-        {ghost && mode === "existing" && github ? (
+      <Step number={3} title="Review" hint={skipHistory ? "Only what happens from now on is copied." : "What the first sync will copy each way."}>
+        <label className="mb-4 flex items-start gap-2.5 text-sm">
+          <input type="checkbox" checked={skipHistory} onChange={(event) => setSkipHistory(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-zinc-900 dark:accent-zinc-100" />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium">Skip history</span>
+            <span className="text-[13px] text-zinc-500 dark:text-zinc-400">Existing branches, issues, pull requests and comments stay where they are. Only pushes, issues, comments and reviews from after the sync starts are copied.</span>
+          </span>
+        </label>
+        {skipHistory ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Nothing is copied when the sync starts. An existing branch, issue or pull request is copied once someone works on it, without its earlier comments.</p>
+        ) : ghost && mode === "existing" && github ? (
           <PreviewSummary ghost={ghost} github={github} />
         ) : (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">{mode === "create" ? "The new repository starts empty: everything on Ghost is copied to it." : "Pick both repositories to see what will be copied."}</p>

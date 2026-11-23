@@ -1,6 +1,6 @@
 import { RestError } from "../rest.ts";
 import { readMarker } from "../format.ts";
-import { SIDE_NAME, type Side } from "../side.ts";
+import { other, SIDE_NAME, type Side } from "../side.ts";
 import type { Link, LinkKind } from "../store.ts";
 import { isNewer, mergeFields } from "./fields.ts";
 import type { SyncContext } from "./context.ts";
@@ -41,7 +41,7 @@ export async function followBody(ctx: SyncContext, to: Side, kind: LinkKind, lin
     await skipped(ctx, to, kind, `The ${SIDE_NAME[to]} copy of ${what} is gone`, error);
     return;
   }
-  const { write, agreed } = mergeFields({ body: readMarker(source.body ?? "").body }, { body: readMarker(target.body ?? "").body }, link.synced, isNewer(source, target));
+  const { write, agreed } = mergeFields(other(to), { body: readMarker(source.body ?? "").body }, { body: readMarker(target.body ?? "").body }, link.synced, isNewer(source, target));
   if ("body" in write) {
     try {
       await ctx.rest[to].request("PATCH", path, { body });

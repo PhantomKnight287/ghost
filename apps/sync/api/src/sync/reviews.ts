@@ -2,11 +2,12 @@ import { readMarker, verdictText, withMarker } from "../format.ts";
 import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { repoPath, type SyncContext } from "./context.ts";
+import { isHistory } from "./history.ts";
 import { copiedBody, ghostKeyOfNodeId } from "./issues.ts";
 import { syncPull } from "./pulls.ts";
 import { createOnce, done, followBody, isNotFound, skipped } from "./write.ts";
 
-export type Review = { id: number; node_id: string; state: string; body: string | null; user: { login: string }; commit_id: string };
+export type Review = { id: number; node_id: string; state: string; body: string | null; user: { login: string }; commit_id: string; submitted_at?: string };
 export type ReviewComment = {
   id: number;
   node_id: string;
@@ -19,6 +20,7 @@ export type ReviewComment = {
   user: { login: string };
   commit_id: string;
   in_reply_to_id?: number | null;
+  created_at?: string;
   updated_at?: string;
 };
 
@@ -47,17 +49,16 @@ function position(comment: ReviewComment) {
   return place;
 }
 
-/** The counterpart pull request number, syncing the pull request first when it has no link yet; null when it could not be copied. */
+/** The pull request's link, syncing the pull request first when it has none yet; null when it could not be copied. */
 async function counterpartPull(ctx: SyncContext, from: Side, pullNumber: number) {
-  const to = other(from);
   const find = () => ctx.store.findLink(ctx.sync.id, "pull", from, String(pullNumber));
-  let link = await find();
-  if (!link) {
-    await syncPull(ctx, from, pullNumber);
-    link = await find();
-  }
-  return link ? Number(to === "ghost" ? link.ghostId : link.githubId) : null;
+  const link = await find();
+  if (link) return link;
+  await syncPull(ctx, from, pullNumber);
+  return find();
 }
+
+const numberOn = (side: Side, link: { ghostId: string; githubId: string }) => Number(side === "ghost" ? link.ghostId : link.githubId);
 
 /** Ghost webhooks name reviews by UUID while its REST layer uses numeric ids, so a Ghost review is found in its pull request's list. */
 async function readReview(ctx: SyncContext, from: Side, pullNumber: number, key: string) {
@@ -107,8 +108,9 @@ export async function syncReview(ctx: SyncContext, from: Side, pullNumber: numbe
   // GitHub files every lone line comment as an empty COMMENTED review; once its comments are copied there is nothing left to say.
   if (verdict === "COMMENTED" && !review.body && roots.length === 0) return;
 
-  const counterpart = await counterpartPull(ctx, from, pullNumber);
-  if (counterpart === null) return;
+  const pull = await counterpartPull(ctx, from, pullNumber);
+  if (!pull || isHistory(ctx, pull, review.submitted_at)) return;
+  const counterpart = numberOn(to, pull);
   const author = review.user.login;
   const text = review.body ? `${verdictText(verdict, from, author)}\n\n${review.body}` : verdictText(verdict, from, author);
   const payload = {
@@ -168,8 +170,9 @@ export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber
   }
   if (comment.user.login === ctx.bot[from]) return;
 
-  const counterpart = await counterpartPull(ctx, from, pullNumber);
-  if (counterpart === null) return;
+  const pull = await counterpartPull(ctx, from, pullNumber);
+  if (!pull || isHistory(ctx, pull, comment.created_at)) return;
+  const counterpart = numberOn(to, pull);
 
   let payload: Record<string, unknown> = { commit_id: comment.commit_id, ...position(comment), body };
   if (comment.in_reply_to_id) {
@@ -181,8 +184,12 @@ export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber
       await syncReviewComment(ctx, from, pullNumber, parentKey);
       parentLink = await ctx.store.findLink(ctx.sync.id, "review_comment", from, parentKey);
     }
-    if (!parentLink) return skipped(ctx, to, "review_comment", `The thread of ${SIDE_NAME[from]} review comment on #${pullNumber} was not copied`, "parent not synced");
-    payload = { body, in_reply_to: Number(restIdOn(to, parentLink)) };
+    if (parentLink) payload = { body, in_reply_to: Number(restIdOn(to, parentLink)) };
+    else {
+      // A thread from before the sync's history began has no copy to join, so a new reply goes on the same line as a comment of its own.
+      const root = parent ?? (await ctx.rest.github.request<ReviewComment>("GET", `${repoPath(ctx, "github")}/pulls/comments/${comment.in_reply_to_id}`));
+      if (!isHistory(ctx, pull, root.created_at)) return skipped(ctx, to, "review_comment", `The thread of ${SIDE_NAME[from]} review comment on #${pullNumber} was not copied`, "parent not synced");
+    }
   }
 
   const commentsPath = `${repoPath(ctx, to)}/pulls/${counterpart}/comments`;

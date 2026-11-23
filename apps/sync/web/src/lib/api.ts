@@ -33,6 +33,8 @@ export type Preview = {
 export type NewSync = {
   ghost: { fullName: string };
   github: { fullName: string } | { create: { owner: string; name: string; private: boolean } };
+  /** False copies only what happens after the sync starts. */
+  backfill: boolean;
 };
 
 /** An answer the API refused, with its message meant for people and, when an app is missing, where to install it. */

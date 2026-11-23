@@ -23,8 +23,8 @@ type Item = {
   updatedAt: Date;
   pull: { head: Branch; base: string; draft: boolean; merged: boolean } | null;
 };
-type Comment = { id: number; uuid: string; number: number; body: string; author: string };
-type Review = { id: number; uuid: string; number: number; state: string; body: string; author: string; commitId: string };
+type Comment = { id: number; uuid: string; number: number; body: string; author: string; createdAt: string };
+type Review = { id: number; uuid: string; number: number; state: string; body: string; author: string; commitId: string; submittedAt: string };
 type ReviewComment = {
   id: number;
   uuid: string;
@@ -39,7 +39,9 @@ type ReviewComment = {
   author: string;
   commitId: string;
   inReplyTo: number | null;
+  createdAt: string;
 };
+type Status = { id: number; uuid: string; sha: string; context: string; state: string; description: string | null; targetUrl: string | null; creator: string };
 type CheckRun = { id: number; uuid: string; name: string; headSha: string; status: string; conclusion: string | null; output: { title: string | null; summary: string | null; text?: string | null }; detailsUrl: string | null; app: string };
 export type Repo = {
   id: number;
@@ -58,6 +60,7 @@ export type Repo = {
   reviews: Review[];
   reviewComments: ReviewComment[];
   checkRuns: CheckRun[];
+  statuses: Status[];
 };
 type Actor = { kind: "user"; login: string } | { kind: "installation"; id: number } | { kind: "app" };
 
@@ -130,6 +133,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     full_name: repo.fullName,
     owner: { login: repo.owner },
     private: repo.private,
+    default_branch: "main",
     permissions: { admin: viewer ? repo.admins.has(viewer) : false },
   });
   const itemJson = (repo: Repo, item: Item) => ({
@@ -155,8 +159,8 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       base: { ref: pull.base, sha: sha(repo, `refs/heads/${pull.base}`) ?? "", repo: { id: repo.id } },
     };
   };
-  const commentJson = (comment: Comment) => ({ id: comment.id, node_id: nodeId("IC", comment), body: comment.body, user: { login: comment.author } });
-  const reviewJson = (review: Review) => ({ id: review.id, node_id: nodeId("PRR", review), state: review.state, body: review.body, user: { login: review.author }, commit_id: review.commitId });
+  const commentJson = (comment: Comment) => ({ id: comment.id, node_id: nodeId("IC", comment), body: comment.body, user: { login: comment.author }, created_at: comment.createdAt });
+  const reviewJson = (review: Review) => ({ id: review.id, node_id: nodeId("PRR", review), state: review.state, body: review.body, user: { login: review.author }, commit_id: review.commitId, submitted_at: review.submittedAt });
   const reviewCommentJson = (comment: ReviewComment) => ({
     id: comment.id,
     node_id: nodeId("PRRC", comment),
@@ -170,6 +174,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     commit_id: comment.commitId,
     in_reply_to_id: comment.inReplyTo,
     pull_request_review_id: comment.reviewId,
+    created_at: comment.createdAt,
   });
   const checkRunJson = (repo: Repo, run: CheckRun) => ({
     id: run.id,
@@ -299,8 +304,10 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     const repo = c.get("repo");
     const number = Number(c.req.param("number"));
     if (!repo.items.has(number)) return notFound(c);
-    const comment: Comment = { id: ++ids, uuid: crypto.randomUUID(), number, body: (await c.req.json<{ body: string }>()).body, author: loginOf(c.get("actor")) };
+    const comment: Comment = { id: ++ids, uuid: crypto.randomUUID(), number, body: (await c.req.json<{ body: string }>()).body, author: loginOf(c.get("actor")), createdAt: new Date().toISOString() };
     repo.comments.push(comment);
+    // A new comment counts as activity on its issue, as on both hosts, so `since` lists the issue again.
+    repo.items.get(number)!.updatedAt = new Date();
     emitComment(repo, comment, "created", comment.author);
     return c.json(commentJson(comment), 201);
   });
@@ -398,7 +405,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     const author = loginOf(c.get("actor"));
     const state = { APPROVE: "APPROVED", REQUEST_CHANGES: "CHANGES_REQUESTED", COMMENT: "COMMENTED" }[request.event] ?? "COMMENTED";
     const commitId = request.commit_id ?? sha(repo, `refs/heads/${item.pull.head.ref}`) ?? "";
-    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state, body: request.body ?? "", author, commitId };
+    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state, body: request.body ?? "", author, commitId, submittedAt: new Date().toISOString() };
     repo.reviews.push(review);
     for (const comment of request.comments ?? []) addReviewComment(repo, number, review.id, author, commitId, comment as ReviewCommentInput);
     emit(repo, author, "pull_request.reviewed", "pull_request_review", {
@@ -422,7 +429,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     const parent = request.in_reply_to ? repo.reviewComments.find((each) => each.id === request.in_reply_to) : undefined;
     if (request.in_reply_to && !parent) return notFound(c);
     const commitId = parent?.commitId ?? request.commit_id ?? "";
-    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state: "COMMENTED", body: "", author, commitId };
+    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state: "COMMENTED", body: "", author, commitId, submittedAt: new Date().toISOString() };
     repo.reviews.push(review);
     const comment = addReviewComment(repo, number, review.id, author, commitId, parent ? { ...parent, body: request.body, in_reply_to: parent.id } : request);
     return c.json(reviewCommentJson(comment), 201);
@@ -446,6 +453,22 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     repo.reviewComments = repo.reviewComments.filter((each) => each !== comment);
     emitReviewComment(repo, comment, "deleted", loginOf(c.get("actor")));
     return c.body(null, 204);
+  });
+
+  const hasCommit = (repo: Repo, commit: string) => tryGit(repo.bare, "cat-file", "-e", `${commit}^{commit}`) !== null;
+  const statusJson = (status: Status) => ({ id: status.id, context: status.context, state: status.state, description: status.description, target_url: status.targetUrl, creator: { login: status.creator } });
+  // Statuses are append-only; both hosts list a commit's newest first.
+  api.get("/repos/:owner/:name/commits/:sha/statuses", (c) => {
+    const repo = c.get("repo");
+    if (!hasCommit(repo, c.req.param("sha"))) return ghost ? notFound(c) : c.json({ message: `No commit found for SHA: ${c.req.param("sha")}` }, 422);
+    return c.json(repo.statuses.filter((status) => status.sha === c.req.param("sha")).reverse().map(statusJson));
+  });
+  api.post("/repos/:owner/:name/statuses/:sha", async (c) => {
+    const repo = c.get("repo");
+    if (!hasCommit(repo, c.req.param("sha"))) return c.json({ message: `No commit found for SHA: ${c.req.param("sha")}` }, 422);
+    const request = await c.req.json<{ state: string; context?: string; description?: string; target_url?: string }>();
+    const status = addStatus(repo, { sha: c.req.param("sha"), context: request.context ?? "default", state: request.state, description: request.description ?? null, targetUrl: request.target_url ?? null, creator: loginOf(c.get("actor")) });
+    return c.json(statusJson(status), 201);
   });
 
   api.get("/repos/:owner/:name/check-runs/:id{[0-9]+}", (c) => {
@@ -518,6 +541,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       author,
       commitId,
       inReplyTo: input.in_reply_to ?? null,
+      createdAt: new Date().toISOString(),
     };
     repo.reviewComments.push(comment);
     emitReviewComment(repo, comment, "created", author);
@@ -560,6 +584,14 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     });
   }
 
+  function addStatus(repo: Repo, fields: Omit<Status, "id" | "uuid">) {
+    const status: Status = { id: ++ids, uuid: crypto.randomUUID(), ...fields };
+    repo.statuses.push(status);
+    const body = { sha: status.sha, context: status.context, state: status.state, description: status.description, target_url: status.targetUrl };
+    emit(repo, status.creator, "commit_status.created", "status", { ghost: { status: { id: status.uuid, ...body } }, github: body });
+    return status;
+  }
+
   function emitCheckRun(repo: Repo, run: CheckRun, verb: "created" | "completed", actor: string) {
     emit(repo, actor, `check_run.${verb}`, "check_run", {
       ghost: { checkRun: { id: run.uuid, numericId: run.id, app: { slug: run.app } } },
@@ -590,6 +622,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       reviews: [],
       reviewComments: [],
       checkRuns: [],
+      statuses: [],
     };
     repos.set(fullName, repo);
     return repo;
@@ -669,6 +702,10 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       emit(repo, by, "push", "push", { ghost: { ref: `refs/heads/${item.pull.base}`, before, after: head }, github: { ref: `refs/heads/${item.pull.base}`, before, after: head } });
     },
     /** A person runs a CI app's check on `sha`. */
+    /** A status reported by `creator`, such as a deploy service, as if it called the API. */
+    addStatus(fullName: string, status: { sha: string; context: string; state: string; description?: string; targetUrl?: string; creator: string }) {
+      return addStatus(repoOf(fullName), { description: null, targetUrl: null, ...status });
+    },
     addCheckRun(fullName: string, run: { name: string; headSha: string; status: string; conclusion: string | null; app: string }) {
       const repo = repoOf(fullName);
       const created: CheckRun = { id: ++ids, uuid: crypto.randomUUID(), output: { title: "CI", summary: `${run.name} ${run.conclusion ?? run.status}` }, detailsUrl: null, ...run };

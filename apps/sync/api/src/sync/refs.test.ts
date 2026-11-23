@@ -52,11 +52,77 @@ describe("syncRefs", () => {
   const main = "refs/heads/main";
   const noPulls = { "GET /repos/acme/app/pulls?state=open&head=acme:main": [] };
 
+  describe("a sync started without backfill", () => {
+    const setup = { ghost: { [main]: "a", "refs/heads/old": "o1" }, github: { [main]: "a", "refs/heads/old": "o2", "refs/heads/gh-only": "g" } };
+
+    test("leaves refs that have not moved since it started", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([]);
+      expect(ctx.store.refs).toEqual([]);
+    });
+
+    test("syncs a ref someone moved since, taking a ref both sides agreed on at setup as its base", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: { ...setup.ghost, [main]: "b" }, github: setup.github }) });
+      ctx.git.ancestors.add("a>b");
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([{ side: "github", ref: main, sha: "b", expected: "a" }]);
+    });
+
+    test("a ref deleted on one side since is deleted on the other, as with a recorded base", async () => {
+      const { [main]: _, ...rest } = setup.ghost;
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: rest, github: setup.github }) });
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([{ side: "github", ref: main, sha: null, expected: "a" }]);
+    });
+
+    test("once a deletion has synced, a branch recreated at its setup commit is created again, not taken for the untouched original", async () => {
+      const { [main]: _, ...rest } = setup.ghost;
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: rest, github: setup.github }) });
+      await syncRefs(ctx);
+      ctx.git.repos.ghost.set(main, "a");
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([
+        { side: "github", ref: main, sha: null, expected: "a" },
+        { side: "github", ref: main, sha: "a", expected: null },
+      ]);
+      expect((await ctx.store.getSync(ctx.sync.id))?.refsAtSetup).toEqual({ ghost: { "refs/heads/old": "o1" }, github: { "refs/heads/old": "o2", "refs/heads/gh-only": "g" } });
+    });
+
+    test("a rejected force-push keeps the setup base, so it is retried once the host allows it instead of flagged as diverged", async () => {
+      // b does not contain a: without the setup base, the two sides look diverged.
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: { ...setup.ghost, [main]: "b" }, github: setup.github }) });
+      ctx.git.rejects.set(`github ${main}`, "protected branch");
+      await syncRefs(ctx);
+      ctx.git.rejects.clear();
+      await syncRefs(ctx);
+      const attempt = { side: "github" as const, ref: main, sha: "b", expected: "a" };
+      expect(ctx.git.pushes).toEqual([attempt, attempt]);
+      expect((await ctx.store.getRef(ctx.sync.id, main))?.diverged).toBeNull();
+    });
+
+    test("a ref a webhook names is synced even if it has not moved", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
+      await syncRefs(ctx, ["refs/heads/gh-only"]);
+      expect(ctx.git.pushes).toEqual([{ side: "ghost", ref: "refs/heads/gh-only", sha: "g", expected: null }]);
+    });
+  });
+
   test("a branch new on GitHub is created on Ghost and its base recorded", async () => {
     const ctx = testContext({ git: fakeGit({ github: { [main]: "b" } }) });
     await syncRefs(ctx);
     expect(ctx.git.pushes).toEqual([{ side: "ghost", ref: main, sha: "b", expected: null }]);
     expect(await ctx.store.getRef(ctx.sync.id, main)).toMatchObject({ baseSha: "b", diverged: null });
+  });
+
+  test("statuses reported on a head before it reached the other side are copied once it is pushed there", async () => {
+    const ctx = testContext({
+      git: fakeGit({ github: { [main]: "b" } }),
+      github: { "GET /repos/acme-gh/app/commits/b/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }] },
+      ghost: { "GET /repos/acme/app/commits/b": { sha: "b" }, "GET /repos/acme/app/commits/b/statuses": [], "POST /repos/acme/app/statuses/b": {} },
+    });
+    await syncRefs(ctx);
+    expect(writes(ctx.ghost)).toEqual([{ method: "POST", path: "/repos/acme/app/statuses/b", body: { context: "Vercel", state: "success" } }]);
   });
 
   test("a branch moved on Ghost goes to GitHub with the base as lease", async () => {

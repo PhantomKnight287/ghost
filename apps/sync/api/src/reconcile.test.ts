@@ -123,6 +123,53 @@ describe("reconcileSync", () => {
     expect(writes(ctx.ghost).map((c) => c.path)).toContain("/repos/acme/app/check-runs");
   });
 
+  test("commit statuses on open pull request heads are copied", async () => {
+    const pull = { ...issue(3, "bob"), pull_request: {} };
+    const ctx = firstSync(
+      {
+        [firstList("acme/app")]: [pull],
+        "GET /repos/acme/app/pulls/3": { ...pull, draft: false, merged: false, head: { ref: "feat", sha: "h1", repo: { id: 1 } }, base: { ref: "main", sha: "m1", repo: { id: 1 } } },
+        "GET /repos/acme/app/issues/3/comments": [],
+        "GET /repos/acme/app/pulls/3/reviews": [],
+        "GET /repos/acme/app/pulls/3/comments": [],
+        "GET /repos/acme/app/commits/h1/check-runs": [],
+        "GET /repos/acme/app/commits/h1/statuses": [],
+        "GET /repos/acme/app/commits/h1": { sha: "h1" },
+        "POST /repos/acme/app/statuses/h1": {},
+      },
+      {
+        "POST /repos/acme-gh/app/pulls": { number: 8 },
+        "GET /repos/acme-gh/app/commits/h1/check-runs": [],
+        "GET /repos/acme-gh/app/commits/h1/statuses": [{ context: "Vercel", state: "success", description: "Preview ready", target_url: "https://app-git-feat.vercel.app", creator: { login: "vercel[bot]" } }],
+      },
+    );
+    ctx.git.repos.ghost.set("refs/heads/feat", "h1");
+    ctx.git.repos.ghost.set("refs/heads/main", "m1");
+    await reconcileSync(ctx, owner);
+    expect(writes(ctx.ghost).filter((c) => c.path === "/repos/acme/app/statuses/h1").map((c) => c.body)).toEqual([{ context: "Vercel", state: "success", description: "Preview ready", target_url: "https://app-git-feat.vercel.app" }]);
+  });
+
+  test("a first run without backfill copies nothing, records where every ref stands, and goes active", async () => {
+    const createdAt = new Date("2026-11-20T00:00:00Z");
+    const ctx = testContext({ sync: { lastReconciledAt: null, status: "backfilling", backfill: false, createdAt }, git: fakeGit({ ghost: { "refs/heads/main": "a" }, github: { "refs/heads/main": "b" } }) });
+    await reconcileSync(ctx, owner);
+    expect(ctx.git.pushes).toEqual([]);
+    expect([...ctx.ghost.calls, ...ctx.github.calls]).toEqual([]);
+    expect(await ctx.store.getSync(ctx.sync.id)).toMatchObject({ status: "active", lastReconciledAt: createdAt, refsAtSetup: { ghost: { "refs/heads/main": "a" }, github: { "refs/heads/main": "b" } } });
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Sync started without history: only what happens from now on is copied"]);
+  });
+
+  test("each pass copies the statuses on each side's default branch head, which no pull request brings back", async () => {
+    const ctx = firstSync(
+      { "GET /repos/acme/app/commits/m1": { sha: "m1" }, "GET /repos/acme/app/commits/m1/statuses": [], "POST /repos/acme/app/statuses/m1": {} },
+      { "GET /repos/acme-gh/app/commits/m1/statuses": [{ context: "Ghost - api", state: "success", description: null, target_url: null, creator: { login: "railway-app[bot]" } }] },
+    );
+    ctx.git.repos.ghost.set("refs/heads/main", "m1");
+    ctx.git.repos.github.set("refs/heads/main", "m1");
+    await reconcileSync(ctx, owner);
+    expect(writes(ctx.ghost).filter((c) => c.path === "/repos/acme/app/statuses/m1").map((c) => c.body)).toEqual([{ context: "Ghost - api", state: "success" }]);
+  });
+
   test("later runs list only what changed since a little before the last one began", async () => {
     const last = new Date("2026-11-01T00:05:00.000Z");
     const since = "2026-11-01T00:00:00.000Z";

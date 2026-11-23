@@ -3,6 +3,7 @@ import { type Rest, RestError } from "./rest.ts";
 import { SIDE_NAME, type Side } from "./side.ts";
 import type { Store, SyncRow } from "./store.ts";
 import { syncCheckRun } from "./sync/checks.ts";
+import { syncStatuses } from "./sync/statuses.ts";
 import { type Comment, syncComment } from "./sync/comments.ts";
 import { repoPath, type SyncContext } from "./sync/context.ts";
 import { ghostKeyOfNodeId, syncIssue } from "./sync/issues.ts";
@@ -50,7 +51,7 @@ function tagged(side: Side, rest: Rest): Rest {
   };
 }
 
-/** One issue or pull request and everything hanging off it: comments, and for a pull request its reviews, line comments and, while open, the check runs on its head. */
+/** One issue or pull request and everything hanging off it: comments, and for a pull request its reviews, line comments and, while open, the check runs and commit statuses on its head. */
 async function reconcileItem(ctx: SyncContext, side: Side, item: Listed) {
   const base = repoPath(ctx, side);
   if (item.pull_request) await syncPull(ctx, side, item.number);
@@ -71,12 +72,13 @@ async function reconcileItem(ctx: SyncContext, side: Side, item: Listed) {
   }
   if (item.state !== "open") return;
 
-  // Runs on the default branch arrive by webhook; an open pull request's head is where reviews wait on checks.
+  // Runs and statuses on the default branch arrive by webhook; an open pull request's head is where reviews wait on checks.
   const { head } = await ctx.rest[side].request<PullHead>("GET", `${base}/pulls/${item.number}`);
   for (const runSide of SIDES) {
     for (const run of await all(ctx.rest[runSide].paginate<{ id: number }>(`${repoPath(ctx, runSide)}/commits/${head.sha}/check-runs`))) {
       await syncCheckRun(ctx, runSide, String(run.id));
     }
+    await syncStatuses(ctx, runSide, head.sha);
   }
 }
 
@@ -93,10 +95,25 @@ export async function reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promi
   const first = !sync.lastReconciledAt;
   if (first && sync.status !== "backfilling") await store.updateSync(sync.id, { status: "backfilling" });
   const run: SyncContext = { ...ctx, rest: { ghost: tagged("ghost", ctx.rest.ghost), github: tagged("github", ctx.rest.github) } };
-  const since = sync.lastReconciledAt ? `&since=${new Date(sync.lastReconciledAt.getTime() - SINCE_MARGIN_MS).toISOString()}` : "";
+  // Without backfill, the margin never reaches back past the sync's start, into history it was told to leave.
+  const floor = sync.backfill ? 0 : sync.createdAt.getTime();
+  const since = sync.lastReconciledAt ? `&since=${new Date(Math.max(sync.lastReconciledAt.getTime() - SINCE_MARGIN_MS, floor)).toISOString()}` : "";
 
   try {
-    await syncRefs(run);
+    if (first && !sync.backfill) {
+      // Nothing from before is copied; where each ref stood is all a later pass needs to tell history from new work.
+      const refs = await ctx.git.fetchBoth(ctx.dir, await ctx.remote());
+      await store.updateSync(sync.id, { status: "active", lastError: null, lastReconciledAt: sync.createdAt, refsAtSetup: { ghost: Object.fromEntries(refs.ghost), github: Object.fromEntries(refs.github) } });
+      await store.addActivity({ syncId: sync.id, direction: null, kind: "reconcile", summary: "Sync started without history: only what happens from now on is copied", error: null });
+      return;
+    }
+    const refs = await syncRefs(run);
+    // A failed status write is dropped with its job; the default branch has no pull request to bring it back, so each pass copies its head's statuses.
+    for (const side of SIDES) {
+      const { default_branch } = await run.rest[side].request<{ default_branch: string }>("GET", repoPath(run, side));
+      const head = refs[side].get(`refs/heads/${default_branch}`);
+      if (head) await syncStatuses(run, side, head);
+    }
     for (const side of SIDES) {
       for await (const item of run.rest[side].paginate<Listed>(`${repoPath(run, side)}/issues?state=all${since}`)) {
         try {
