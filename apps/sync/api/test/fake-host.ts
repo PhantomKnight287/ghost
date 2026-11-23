@@ -242,6 +242,14 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     return ghost ? notFound(c) : c.json({ message: `No commit found for SHA: ${c.req.param("sha")}` }, 422);
   });
 
+  // GitHub answers a pending, empty combined status even for a commit it has never seen; Ghost answers 404.
+  api.get("/repos/:owner/:name/commits/:sha/status", (c) => {
+    const repo = c.get("repo");
+    const found = tryGit(repo.bare, "cat-file", "-e", `${c.req.param("sha")}^{commit}`) !== null;
+    if (ghost && !found) return c.json({ message: `No commit found for SHA: ${c.req.param("sha")}` }, 404);
+    return c.json({ sha: c.req.param("sha"), state: "pending", statuses: [], total_count: 0 });
+  });
+
   // Issues and pull requests share one numbering, as on both hosts.
   api.get("/repos/:owner/:name/issues", (c) => {
     const repo = c.get("repo");
