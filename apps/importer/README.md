@@ -17,13 +17,13 @@ Not imported: release assets, Git LFS objects, review comments on pull request l
 
 ## Configuration
 
-| Variable | Default | |
-| --- | --- | --- |
-| `IMPORTER_SECRET` | | Shared with the API, which sends it with jobs and receives it with callbacks. At least 16 characters. |
-| `GHOST_API_URL` | | Where the importer reaches the API for callbacks and `git push`, such as `http://api:3001`. |
-| `PORT` | `3004` | |
-| `IMPORTER_CONCURRENCY` | `2` | Imports run at once. Further jobs are refused with 503 and retried by the API. |
-| `IMPORTER_WORKDIR` | `$TMPDIR/ghost-importer` | Scratch space for clones. Needs room for the largest repository you import. |
+| Variable               | Default                  |                                                                                                       |
+| ---------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `IMPORTER_SECRET`      |                          | Shared with the API, which sends it with jobs and receives it with callbacks. At least 16 characters. |
+| `GHOST_API_URL`        |                          | Where the importer reaches the API for callbacks and `git push`, such as `http://api:3001`.           |
+| `PORT`                 | `3004`                   |                                                                                                       |
+| `IMPORTER_CONCURRENCY` | `2`                      | Imports run at once. Further jobs are refused with 503 and retried by the API.                        |
+| `IMPORTER_WORKDIR`     | `$TMPDIR/ghost-importer` | Scratch space for clones. Needs room for the largest repository you import.                           |
 
 The API needs `IMPORTER_URL` and the same `IMPORTER_SECRET`, plus `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` from a GitHub OAuth app whose callback URL is `<BETTER_AUTH_URL>/api/auth/callback/github`.
 

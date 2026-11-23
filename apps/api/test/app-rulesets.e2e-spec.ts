@@ -293,7 +293,11 @@ describe.skipIf(!hasBackends)('Rulesets and apps', { timeout: 60_000 }, () => {
       });
 
     const { body: run } = await rest(ci.token)
-      .post('/check-runs', { name: 'build', head_sha: sha, status: 'in_progress' })
+      .post('/check-runs', {
+        name: 'build',
+        head_sha: sha,
+        status: 'in_progress',
+      })
       .expect(201);
     expect((await merge().expect(405)).body.message).toContain(
       'Required status check "build" is pending.',
@@ -307,7 +311,11 @@ describe.skipIf(!hasBackends)('Rulesets and apps', { timeout: 60_000 }, () => {
       'Required status check "build" is failure.',
     );
     await rest(ci.token)
-      .post('/check-runs', { name: 'build', head_sha: sha, conclusion: 'success' })
+      .post('/check-runs', {
+        name: 'build',
+        head_sha: sha,
+        conclusion: 'success',
+      })
       .expect(201);
     await merge().expect(200);
   });

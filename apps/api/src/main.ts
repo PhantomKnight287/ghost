@@ -36,7 +36,7 @@ async function bootstrap() {
     credentials: true,
   });
   const port = process.env.PORT ?? process.env.API_PORT ?? 3001; // Railway (and most PaaS) inject PORT; API_PORT stays for local dev.
-  console.log(`Starting application on ${port}`);
   await app.listen(port);
+  console.log(`Starting application on ${port}`);
 }
 await bootstrap();

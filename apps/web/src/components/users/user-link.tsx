@@ -60,7 +60,6 @@ export function UserLink({
         />
       )}
       {username}
-
     </Link>
   );
 }

@@ -102,7 +102,8 @@ describe("createServerClient", () => {
   });
 
   it("stays quiet on answers a page expects, such as a hidden resource", async () => {
-    for (const status of [401, 403, 404]) expect(await logged(status)).toEqual([]);
+    for (const status of [401, 403, 404])
+      expect(await logged(status)).toEqual([]);
     expect(await logged({ issues: [] })).toEqual([]);
   });
 });
