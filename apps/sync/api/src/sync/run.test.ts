@@ -23,7 +23,7 @@ describe("runAction", () => {
   });
 
   test("a commit status reaches the status sync", async () => {
-    const ctx = testContext({ github: { "GET /repos/acme-gh/app/commits/h1/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }] }, ghost: { "GET /repos/acme/app/commits/h1": { sha: "h1" }, "GET /repos/acme/app/commits/h1/statuses": [], "POST /repos/acme/app/statuses/h1": {} } });
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/commits/h1/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }] }, ghost: { "GET /repos/acme/app/commits/h1/status": { sha: "h1", state: "pending", total_count: 0 }, "GET /repos/acme/app/commits/h1/statuses": [], "POST /repos/acme/app/statuses/h1": {} } });
     await runAction(ctx, { kind: "status", from: "github", sha: "h1" }, noReconcile);
     expect(writes(ctx.ghost).map((c) => `${c.method} ${c.path}`)).toEqual(["POST /repos/acme/app/statuses/h1"]);
   });

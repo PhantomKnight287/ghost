@@ -241,6 +241,20 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     });
   });
 
+  it('answers a commit by sha or branch, the same as in the pull request commits, and 422 for one that is not there', async () => {
+    const [listed] = (await get(`${repo}/pulls/1/commits`).expect(200)).body;
+    expect(
+      (await get(`${repo}/commits/${listed.sha}`).expect(200)).body,
+    ).toEqual(listed);
+    expect(
+      (await get(`${repo}/commits/main`).expect(200)).body.commit.message,
+    ).toBe('main moves');
+    const missing = await get(`${repo}/commits/${'0'.repeat(40)}`).expect(422);
+    expect(missing.body.message).toBe(
+      `No commit found for SHA: ${'0'.repeat(40)}`,
+    );
+  });
+
   it('derives reviewDecision and latestReviews from submitted reviews', async () => {
     await v3()
       .post(`/api/repositories/${username}/tools/pulls/1/reviews`)

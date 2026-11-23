@@ -39,6 +39,7 @@ import {
 import { GithubUpdateRepositoryDTO } from './dto/update-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { GithubPullCommitDTO } from '../pulls/dto/pull.dto.js';
 import { GithubGitTagDTO } from './dto/git-tag.dto.js';
 import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
@@ -140,6 +141,22 @@ export class ReposController {
       ifNoneMatch,
       logger: this.logger,
     });
+  }
+
+  @Get('repos/:owner/:repo/commits/:ref')
+  @RequireAppPermission('contents')
+  @ApiOperation({
+    summary:
+      'A commit by sha or branch name; a branch whose name holds a slash is not reachable here',
+  })
+  @ApiOkResponse({ type: GithubPullCommitDTO })
+  commit(
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
+    @Param('ref') ref: string,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.commit({ owner, repo, viewer }, ref);
   }
 
   @Get('repos/:owner/:repo/git/tags/:tagSha')

@@ -16,7 +16,7 @@ const actionsRun = (overrides: Record<string, unknown> = {}) => ({
   app: { slug: "github-actions" },
   ...overrides,
 });
-const commitExists = { "GET /repos/acme/app/commits/h1": { sha: "h1" } };
+const commitExists = { "GET /repos/acme/app/commits/h1/status": { sha: "h1", state: "pending", total_count: 0 } };
 
 describe("syncCheckRun", () => {
   test("a GitHub run is copied onto the same Ghost commit, pointing back at GitHub, and linked", async () => {
@@ -135,6 +135,19 @@ describe("check run edge cases", () => {
     });
     await syncCheckRun(ctx, "ghost", "55");
     expect(writes(ctx.github)).toEqual([]);
+  });
+
+  test("Ghost's 404 for an unknown commit's status means not there yet", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun() },
+      ghost: {
+        "GET /repos/acme/app/commits/h1/status": () => {
+          throw new RestError(404, { message: "No commit found for SHA: h1" });
+        },
+      },
+    });
+    await syncCheckRun(ctx, "github", "1001");
+    expect(writes(ctx.ghost)).toEqual([]);
   });
 
   test("a copy whose answer was lost is found by its link back to the original", async () => {

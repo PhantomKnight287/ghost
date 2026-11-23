@@ -16,7 +16,10 @@ import type {
   GithubViaAppDTO,
 } from '../../github/rest/issues/dto/issue.dto.js';
 import type { GithubLabelDTO } from '../../github/rest/issues/dto/label.dto.js';
-import type { GithubPullDTO } from '../../github/rest/pulls/dto/pull.dto.js';
+import type {
+  GithubPullCommitDTO,
+  GithubPullDTO,
+} from '../../github/rest/pulls/dto/pull.dto.js';
 import type { GithubReviewDTO } from '../../github/rest/pulls/dto/review-comment.dto.js';
 import type {
   GithubReleaseAssetDTO,
@@ -39,7 +42,9 @@ import type {
   ReleaseAssetDTO,
   ReleaseDTO,
 } from '../../resources/releases/dto/release.dto.js';
+import type { CommitVerification } from '../../services/gpg/commit-verification.service.js';
 import type { ViaApp } from '../apps/via-app.js';
+import type { Commit } from '../git/commits/list-commits.js';
 import { GithubValidationError } from './github.errors.js';
 import { encodeNodeId } from './node-id.js';
 import type { ReleaseAssetExtras } from './node-lookup.js';
@@ -614,6 +619,52 @@ export function toStatusRest(
 }
 
 export type RestStatus = GithubStatusDTO;
+
+// Mapper: a commit as git reads it, with its signature verdict and the accounts behind its emails, in GitHub's shape.
+export function toCommitRest(
+  commit: Commit,
+  verification: CommitVerification | null,
+  users: Map<string, RestUser>,
+  repository: Pick<RepositoryNode, 'ghostId' | 'nameWithOwner' | 'url'>,
+  { api }: GithubOrigins,
+): GithubPullCommitDTO {
+  const apiUrl = `${api}/api/v3/repos/${repository.nameWithOwner}`;
+  return {
+    sha: commit.sha,
+    node_id: encodeNodeId('Commit', `${repository.ghostId}:${commit.sha}`),
+    commit: {
+      author: {
+        name: commit.authorName,
+        email: commit.authorEmail,
+        date: commit.authoredAt,
+      },
+      committer: {
+        name: commit.committerName,
+        email: commit.committerEmail,
+        date: commit.committedAt,
+      },
+      message: [commit.subject, commit.body].filter(Boolean).join('\n\n'),
+      url: `${apiUrl}/git/commits/${commit.sha}`,
+      comment_count: 0,
+      verification: {
+        verified: verification?.verified ?? false,
+        reason: verification?.verified
+          ? 'valid'
+          : verification?.keyId
+            ? 'unknown_key'
+            : 'unsigned',
+        signature: null,
+        payload: null,
+        verified_at: null,
+      },
+    },
+    url: `${apiUrl}/commits/${commit.sha}`,
+    html_url: `${repository.url}/commit/${commit.sha}`,
+    comments_url: `${apiUrl}/commits/${commit.sha}/comments`,
+    author: users.get(commit.authorEmail.toLowerCase()) ?? null,
+    committer: users.get(commit.committerEmail.toLowerCase()) ?? null,
+  };
+}
 
 // Mapper: the combined status comes from CommitStatusesService in Ghost's shape; GitHub's embeds the repository and adds URLs.
 export function toCombinedStatusRest(

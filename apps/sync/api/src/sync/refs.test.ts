@@ -126,7 +126,7 @@ describe("syncRefs", () => {
     const ctx = testContext({
       git: fakeGit({ github: { [main]: "b" } }),
       github: { "GET /repos/acme-gh/app/commits/b/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }] },
-      ghost: { "GET /repos/acme/app/commits/b": { sha: "b" }, "GET /repos/acme/app/commits/b/statuses": [], "POST /repos/acme/app/statuses/b": {} },
+      ghost: { "GET /repos/acme/app/commits/b/status": { sha: "b", state: "pending", total_count: 0 }, "GET /repos/acme/app/commits/b/statuses": [], "POST /repos/acme/app/statuses/b": {} },
     });
     await syncRefs(ctx);
     expect(writes(ctx.ghost)).toEqual([{ method: "POST", path: "/repos/acme/app/statuses/b", body: { context: "Vercel", state: "success" } }]);

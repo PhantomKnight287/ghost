@@ -14095,6 +14095,72 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}": {
+      "get": {
+        "operationId": "ReposController_commit",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullCommitDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A commit by sha or branch name; a branch whose name holds a slash is not reachable here",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/git/tags/{tagSha}": {
       "get": {
         "operationId": "ReposController_gitTag",
@@ -32095,26 +32161,6 @@
           "date"
         ]
       },
-      "GithubGitTagObjectDTO": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "example": "commit"
-          },
-          "sha": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "sha",
-          "url"
-        ]
-      },
       "GithubCommitVerificationDTO": {
         "type": "object",
         "properties": {
@@ -32150,6 +32196,110 @@
           "signature",
           "payload",
           "verified_at"
+        ]
+      },
+      "GithubGitCommitDTO": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/GithubGitActorDTO"
+          },
+          "committer": {
+            "$ref": "#/components/schemas/GithubGitActorDTO"
+          },
+          "message": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "comment_count": {
+            "type": "number",
+            "example": 0
+          },
+          "verification": {
+            "$ref": "#/components/schemas/GithubCommitVerificationDTO"
+          }
+        },
+        "required": [
+          "author",
+          "committer",
+          "message",
+          "url",
+          "comment_count",
+          "verification"
+        ]
+      },
+      "GithubPullCommitDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "commit": {
+            "$ref": "#/components/schemas/GithubGitCommitDTO"
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "comments_url": {
+            "type": "string"
+          },
+          "author": {
+            "nullable": true,
+            "description": "The account whose verified email the commit was authored with.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "committer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "sha",
+          "node_id",
+          "commit",
+          "url",
+          "html_url",
+          "comments_url",
+          "author",
+          "committer"
+        ]
+      },
+      "GithubGitTagObjectDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "commit"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "sha",
+          "url"
         ]
       },
       "GithubGitTagDTO": {
@@ -34030,90 +34180,6 @@
             "description": "Accepted and ignored."
           }
         }
-      },
-      "GithubGitCommitDTO": {
-        "type": "object",
-        "properties": {
-          "author": {
-            "$ref": "#/components/schemas/GithubGitActorDTO"
-          },
-          "committer": {
-            "$ref": "#/components/schemas/GithubGitActorDTO"
-          },
-          "message": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          },
-          "comment_count": {
-            "type": "number",
-            "example": 0
-          },
-          "verification": {
-            "$ref": "#/components/schemas/GithubCommitVerificationDTO"
-          }
-        },
-        "required": [
-          "author",
-          "committer",
-          "message",
-          "url",
-          "comment_count",
-          "verification"
-        ]
-      },
-      "GithubPullCommitDTO": {
-        "type": "object",
-        "properties": {
-          "sha": {
-            "type": "string"
-          },
-          "node_id": {
-            "type": "string"
-          },
-          "commit": {
-            "$ref": "#/components/schemas/GithubGitCommitDTO"
-          },
-          "url": {
-            "type": "string"
-          },
-          "html_url": {
-            "type": "string"
-          },
-          "comments_url": {
-            "type": "string"
-          },
-          "author": {
-            "nullable": true,
-            "description": "The account whose verified email the commit was authored with.",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/GithubSimpleUserDTO"
-              }
-            ]
-          },
-          "committer": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/GithubSimpleUserDTO"
-              }
-            ]
-          }
-        },
-        "required": [
-          "sha",
-          "node_id",
-          "commit",
-          "url",
-          "html_url",
-          "comments_url",
-          "author",
-          "committer"
-        ]
       },
       "GithubPullFileDTO": {
         "type": "object",

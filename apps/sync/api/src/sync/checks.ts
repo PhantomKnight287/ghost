@@ -20,8 +20,10 @@ export const SYNC_CHECK_NAME = "Sync with GitHub";
 const SETTABLE = ["queued", "in_progress", "completed"];
 
 export async function commitExists(ctx: SyncContext, side: Side, sha: string) {
+  // Ghost instances older than its `commits/{sha}` route answer only the combined status, which 404s for an unknown commit there; GitHub's answers 200 for any sha.
+  const path = side === "ghost" ? `${repoPath(ctx, side)}/commits/${sha}/status` : `${repoPath(ctx, side)}/commits/${sha}`;
   try {
-    await ctx.rest[side].request("GET", `${repoPath(ctx, side)}/commits/${sha}`);
+    await ctx.rest[side].request("GET", path);
     return true;
   } catch (error) {
     // GitHub answers 422 "No commit found for SHA" for a commit it has never seen.

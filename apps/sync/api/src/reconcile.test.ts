@@ -108,7 +108,7 @@ describe("reconcileSync", () => {
         "GET /repos/acme/app/pulls/3/reviews": [],
         "GET /repos/acme/app/pulls/3/comments": [],
         "GET /repos/acme/app/commits/h1/check-runs": [],
-        "GET /repos/acme/app/commits/h1": { sha: "h1" },
+        "GET /repos/acme/app/commits/h1/status": { sha: "h1", state: "pending", total_count: 0 },
         "POST /repos/acme/app/check-runs": { id: 55 },
       },
       {
@@ -134,7 +134,7 @@ describe("reconcileSync", () => {
         "GET /repos/acme/app/pulls/3/comments": [],
         "GET /repos/acme/app/commits/h1/check-runs": [],
         "GET /repos/acme/app/commits/h1/statuses": [],
-        "GET /repos/acme/app/commits/h1": { sha: "h1" },
+        "GET /repos/acme/app/commits/h1/status": { sha: "h1", state: "pending", total_count: 0 },
         "POST /repos/acme/app/statuses/h1": {},
       },
       {
@@ -161,7 +161,7 @@ describe("reconcileSync", () => {
 
   test("each pass copies the statuses on each side's default branch head, which no pull request brings back", async () => {
     const ctx = firstSync(
-      { "GET /repos/acme/app/commits/m1": { sha: "m1" }, "GET /repos/acme/app/commits/m1/statuses": [], "POST /repos/acme/app/statuses/m1": {} },
+      { "GET /repos/acme/app/commits/m1/status": { sha: "m1", state: "pending", total_count: 0 }, "GET /repos/acme/app/commits/m1/statuses": [], "POST /repos/acme/app/statuses/m1": {} },
       { "GET /repos/acme-gh/app/commits/m1/statuses": [{ context: "Ghost - api", state: "success", description: null, target_url: null, creator: { login: "railway-app[bot]" } }] },
     );
     ctx.git.repos.ghost.set("refs/heads/main", "m1");

@@ -12,7 +12,7 @@ const status = (context: string, state: string, login: string, overrides: Record
   creator: { login },
   ...overrides,
 });
-const onGhost = { "GET /repos/acme/app/commits/h1": { sha: "h1" } };
+const onGhost = { "GET /repos/acme/app/commits/h1/status": { sha: "h1", state: "pending", total_count: 0 } };
 
 describe("syncStatuses", () => {
   test("the latest status of each context on GitHub is posted onto the same Ghost commit, keeping its link", async () => {
