@@ -77,7 +77,7 @@ describe("syncPull, unlinked", () => {
     await syncPull(ctx, "ghost", 3);
     expect(ctx.git.pushes).toEqual([]);
     expect(writes(ctx.github)).toEqual([]);
-    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8" });
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8", pairedAt: expect.any(Date) });
     expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Paired Ghost pull request #3 with its twin, GitHub pull request #8"]);
   });
 

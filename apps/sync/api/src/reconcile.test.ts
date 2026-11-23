@@ -149,6 +149,16 @@ describe("reconcileSync", () => {
     expect(writes(ctx.ghost).filter((c) => c.path === "/repos/acme/app/statuses/h1").map((c) => c.body)).toEqual([{ context: "Vercel", state: "success", description: "Preview ready", target_url: "https://app-git-feat.vercel.app" }]);
   });
 
+  test("a first run without backfill copies nothing, records where every ref stands, and goes active", async () => {
+    const createdAt = new Date("2026-11-20T00:00:00Z");
+    const ctx = testContext({ sync: { lastReconciledAt: null, status: "backfilling", backfill: false, createdAt }, git: fakeGit({ ghost: { "refs/heads/main": "a" }, github: { "refs/heads/main": "b" } }) });
+    await reconcileSync(ctx, owner);
+    expect(ctx.git.pushes).toEqual([]);
+    expect([...ctx.ghost.calls, ...ctx.github.calls]).toEqual([]);
+    expect(await ctx.store.getSync(ctx.sync.id)).toMatchObject({ status: "active", lastReconciledAt: createdAt, refsAtSetup: { ghost: { "refs/heads/main": "a" }, github: { "refs/heads/main": "b" } } });
+    expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Sync started without history: only what happens from now on is copied"]);
+  });
+
   test("later runs list only what changed since a little before the last one began", async () => {
     const last = new Date("2026-11-01T00:05:00.000Z");
     const since = "2026-11-01T00:00:00.000Z";

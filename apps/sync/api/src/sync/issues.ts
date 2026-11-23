@@ -93,7 +93,7 @@ export async function syncIssue(ctx: SyncContext, from: Side, number: number): P
     const twin = await findTwinIssue(ctx, to, source.title);
     if (twin) {
       const ids = from === "ghost" ? { ghostId: String(number), githubId: String(twin.number) } : { ghostId: String(twin.number), githubId: String(number) };
-      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids, synced: pairedFields(issueFields(source), issueFields(twin)) });
+      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids, synced: pairedFields(issueFields(source), issueFields(twin)), pairedAt: new Date() });
       await done(ctx, to, "issue", `Paired ${SIDE_NAME[from]} issue #${number} with its twin, ${SIDE_NAME[to]} issue #${twin.number}`);
       return twin.number;
     }

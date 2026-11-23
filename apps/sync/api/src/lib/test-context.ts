@@ -21,6 +21,8 @@ export function syncRow(overrides: Partial<SyncRow> = {}): SyncRow {
     lastError: null,
     disconnectReason: null,
     lastReconciledAt: now,
+    backfill: true,
+    refsAtSetup: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,

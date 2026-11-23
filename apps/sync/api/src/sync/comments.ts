@@ -1,17 +1,21 @@
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import { readMarker } from "../format.ts";
 import { repoPath, type SyncContext } from "./context.ts";
+import { isHistory } from "./history.ts";
 import { copiedBody, ghostKeyOfNodeId, syncIssue } from "./issues.ts";
 import { createOnce, done, followBody, isNotFound, skipped } from "./write.ts";
 
-export type Comment = { id: number; node_id: string; body: string | null; user: { login: string }; updated_at?: string };
+export type Comment = { id: number; node_id: string; body: string | null; user: { login: string }; created_at?: string; updated_at?: string };
 
-/** The counterpart issue or pull request number of `number` on `from`, syncing the issue first when it has no link yet. */
+const threadLink = async (ctx: SyncContext, from: Side, number: number) =>
+  (await ctx.store.findLink(ctx.sync.id, "issue", from, String(number))) ?? (await ctx.store.findLink(ctx.sync.id, "pull", from, String(number)));
+
+/** The link of issue or pull request `number` on `from`, syncing the issue first when it has none yet; null when it could not be copied. */
 async function counterpartOf(ctx: SyncContext, from: Side, number: number) {
-  const to = other(from);
-  const link = (await ctx.store.findLink(ctx.sync.id, "issue", from, String(number))) ?? (await ctx.store.findLink(ctx.sync.id, "pull", from, String(number)));
-  if (link) return Number(to === "ghost" ? link.ghostId : link.githubId);
-  return syncIssue(ctx, from, number);
+  const link = await threadLink(ctx, from, number);
+  if (link) return link;
+  await syncIssue(ctx, from, number);
+  return threadLink(ctx, from, number);
 }
 
 /** Ghost webhooks name a comment by UUID while its REST layer uses a numeric id, so a Ghost comment is found in its issue's list. */
@@ -48,9 +52,9 @@ export async function syncComment(ctx: SyncContext, from: Side, issueNumber: num
   }
   if (source.user.login === ctx.bot[from]) return;
 
-  const parent = await counterpartOf(ctx, from, issueNumber);
-  if (parent === null) return;
-  const commentsPath = `${repoPath(ctx, to)}/issues/${parent}/comments`;
+  const thread = await counterpartOf(ctx, from, issueNumber);
+  if (!thread || isHistory(ctx, thread, source.created_at)) return;
+  const commentsPath = `${repoPath(ctx, to)}/issues/${to === "ghost" ? thread.ghostId : thread.githubId}/comments`;
   const created = await createOnce<Comment>(ctx, to, commentsPath, { body }, async () => {
     for await (const comment of ctx.rest[to].paginate<Comment>(commentsPath)) {
       if (comment.user.login === ctx.bot[to] && comment.body === body) return comment;

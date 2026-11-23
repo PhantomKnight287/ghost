@@ -52,6 +52,37 @@ describe("syncRefs", () => {
   const main = "refs/heads/main";
   const noPulls = { "GET /repos/acme/app/pulls?state=open&head=acme:main": [] };
 
+  describe("a sync started without backfill", () => {
+    const setup = { ghost: { [main]: "a", "refs/heads/old": "o1" }, github: { [main]: "a", "refs/heads/old": "o2", "refs/heads/gh-only": "g" } };
+
+    test("leaves refs that have not moved since it started", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([]);
+      expect(ctx.store.refs).toEqual([]);
+    });
+
+    test("syncs a ref someone moved since, taking a ref both sides agreed on at setup as its base", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: { ...setup.ghost, [main]: "b" }, github: setup.github }) });
+      ctx.git.ancestors.add("a>b");
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([{ side: "github", ref: main, sha: "b", expected: "a" }]);
+    });
+
+    test("a ref deleted on one side since is deleted on the other, as with a recorded base", async () => {
+      const { [main]: _, ...rest } = setup.ghost;
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: rest, github: setup.github }) });
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([{ side: "github", ref: main, sha: null, expected: "a" }]);
+    });
+
+    test("a ref a webhook names is synced even if it has not moved", async () => {
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
+      await syncRefs(ctx, ["refs/heads/gh-only"]);
+      expect(ctx.git.pushes).toEqual([{ side: "ghost", ref: "refs/heads/gh-only", sha: "g", expected: null }]);
+    });
+  });
+
   test("a branch new on GitHub is created on Ghost and its base recorded", async () => {
     const ctx = testContext({ git: fakeGit({ github: { [main]: "b" } }) });
     await syncRefs(ctx);

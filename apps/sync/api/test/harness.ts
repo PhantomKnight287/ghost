@@ -124,8 +124,8 @@ export async function startWorld(file: string) {
   }
 
   /** Pairs two repositories through the API, as the web does, and lets the first sync finish. */
-  async function pair(ghostFullName = "acme/app", githubFullName = "acme-gh/app") {
-    const created = await call<{ id: string }>("POST", "/api/syncs", { ghost: { fullName: ghostFullName }, github: { fullName: githubFullName } });
+  async function pair(ghostFullName = "acme/app", githubFullName = "acme-gh/app", options: { backfill?: boolean } = {}) {
+    const created = await call<{ id: string }>("POST", "/api/syncs", { ghost: { fullName: ghostFullName }, github: { fullName: githubFullName }, ...options });
     if (created.status !== 201) throw new Error(`pairing answered ${created.status}: ${JSON.stringify(created.body)}`);
     await settle();
     return created.body.id;

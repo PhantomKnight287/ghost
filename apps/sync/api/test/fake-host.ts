@@ -23,8 +23,8 @@ type Item = {
   updatedAt: Date;
   pull: { head: Branch; base: string; draft: boolean; merged: boolean } | null;
 };
-type Comment = { id: number; uuid: string; number: number; body: string; author: string };
-type Review = { id: number; uuid: string; number: number; state: string; body: string; author: string; commitId: string };
+type Comment = { id: number; uuid: string; number: number; body: string; author: string; createdAt: string };
+type Review = { id: number; uuid: string; number: number; state: string; body: string; author: string; commitId: string; submittedAt: string };
 type ReviewComment = {
   id: number;
   uuid: string;
@@ -39,6 +39,7 @@ type ReviewComment = {
   author: string;
   commitId: string;
   inReplyTo: number | null;
+  createdAt: string;
 };
 type Status = { id: number; uuid: string; sha: string; context: string; state: string; description: string | null; targetUrl: string | null; creator: string };
 type CheckRun = { id: number; uuid: string; name: string; headSha: string; status: string; conclusion: string | null; output: { title: string | null; summary: string | null; text?: string | null }; detailsUrl: string | null; app: string };
@@ -157,8 +158,8 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       base: { ref: pull.base, sha: sha(repo, `refs/heads/${pull.base}`) ?? "", repo: { id: repo.id } },
     };
   };
-  const commentJson = (comment: Comment) => ({ id: comment.id, node_id: nodeId("IC", comment), body: comment.body, user: { login: comment.author } });
-  const reviewJson = (review: Review) => ({ id: review.id, node_id: nodeId("PRR", review), state: review.state, body: review.body, user: { login: review.author }, commit_id: review.commitId });
+  const commentJson = (comment: Comment) => ({ id: comment.id, node_id: nodeId("IC", comment), body: comment.body, user: { login: comment.author }, created_at: comment.createdAt });
+  const reviewJson = (review: Review) => ({ id: review.id, node_id: nodeId("PRR", review), state: review.state, body: review.body, user: { login: review.author }, commit_id: review.commitId, submitted_at: review.submittedAt });
   const reviewCommentJson = (comment: ReviewComment) => ({
     id: comment.id,
     node_id: nodeId("PRRC", comment),
@@ -172,6 +173,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     commit_id: comment.commitId,
     in_reply_to_id: comment.inReplyTo,
     pull_request_review_id: comment.reviewId,
+    created_at: comment.createdAt,
   });
   const checkRunJson = (repo: Repo, run: CheckRun) => ({
     id: run.id,
@@ -301,8 +303,10 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     const repo = c.get("repo");
     const number = Number(c.req.param("number"));
     if (!repo.items.has(number)) return notFound(c);
-    const comment: Comment = { id: ++ids, uuid: crypto.randomUUID(), number, body: (await c.req.json<{ body: string }>()).body, author: loginOf(c.get("actor")) };
+    const comment: Comment = { id: ++ids, uuid: crypto.randomUUID(), number, body: (await c.req.json<{ body: string }>()).body, author: loginOf(c.get("actor")), createdAt: new Date().toISOString() };
     repo.comments.push(comment);
+    // A new comment counts as activity on its issue, as on both hosts, so `since` lists the issue again.
+    repo.items.get(number)!.updatedAt = new Date();
     emitComment(repo, comment, "created", comment.author);
     return c.json(commentJson(comment), 201);
   });
@@ -400,7 +404,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     const author = loginOf(c.get("actor"));
     const state = { APPROVE: "APPROVED", REQUEST_CHANGES: "CHANGES_REQUESTED", COMMENT: "COMMENTED" }[request.event] ?? "COMMENTED";
     const commitId = request.commit_id ?? sha(repo, `refs/heads/${item.pull.head.ref}`) ?? "";
-    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state, body: request.body ?? "", author, commitId };
+    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state, body: request.body ?? "", author, commitId, submittedAt: new Date().toISOString() };
     repo.reviews.push(review);
     for (const comment of request.comments ?? []) addReviewComment(repo, number, review.id, author, commitId, comment as ReviewCommentInput);
     emit(repo, author, "pull_request.reviewed", "pull_request_review", {
@@ -424,7 +428,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     const parent = request.in_reply_to ? repo.reviewComments.find((each) => each.id === request.in_reply_to) : undefined;
     if (request.in_reply_to && !parent) return notFound(c);
     const commitId = parent?.commitId ?? request.commit_id ?? "";
-    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state: "COMMENTED", body: "", author, commitId };
+    const review: Review = { id: ++ids, uuid: crypto.randomUUID(), number, state: "COMMENTED", body: "", author, commitId, submittedAt: new Date().toISOString() };
     repo.reviews.push(review);
     const comment = addReviewComment(repo, number, review.id, author, commitId, parent ? { ...parent, body: request.body, in_reply_to: parent.id } : request);
     return c.json(reviewCommentJson(comment), 201);
@@ -536,6 +540,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       author,
       commitId,
       inReplyTo: input.in_reply_to ?? null,
+      createdAt: new Date().toISOString(),
     };
     repo.reviewComments.push(comment);
     emitReviewComment(repo, comment, "created", author);

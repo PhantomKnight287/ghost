@@ -86,7 +86,7 @@ export async function syncPull(ctx: SyncContext, from: Side, number: number) {
     const twin = await findTwinPull(ctx, to, source);
     if (twin) {
       const ids = from === "ghost" ? { ghostId: String(number), githubId: String(twin.number) } : { ghostId: String(twin.number), githubId: String(number) };
-      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostRestId: null, ...ids, synced: pairedFields(pullFields(source), pullFields(twin)) });
+      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostRestId: null, ...ids, synced: pairedFields(pullFields(source), pullFields(twin)), pairedAt: new Date() });
       await done(ctx, to, "pull", `Paired ${SIDE_NAME[from]} pull request #${number} with its twin, ${SIDE_NAME[to]} pull request #${twin.number}`);
       return;
     }

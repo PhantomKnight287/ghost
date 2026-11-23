@@ -27,8 +27,11 @@ export async function syncRefs(ctx: SyncContext, only?: string[]) {
   const stored = await ctx.store.listRefs(ctx.sync.id);
   const names = new Set([...fetched.ghost.keys(), ...fetched.github.keys(), ...stored.map((r) => r.name)]);
 
+  const setup = ctx.sync.refsAtSetup;
   for (const name of names) {
     if (only && !only.includes(name)) continue;
+    // Without backfill, a ref no one has moved since the sync started is history; a webhook naming it still syncs it.
+    if (!only && setup && !stored.some((r) => r.name === name) && fetched.ghost.get(name) === setup.ghost[name] && fetched.github.get(name) === setup.github[name]) continue;
     if (name.startsWith("refs/heads/ghost-pr/")) continue;
     for (let attempt = 1; ; attempt++) {
       const outcome = await syncRef(ctx, remotes, name, fetched.ghost.get(name) ?? null, fetched.github.get(name) ?? null);
@@ -42,9 +45,12 @@ export async function syncRefs(ctx: SyncContext, only?: string[]) {
 
 async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: string, ghost: string | null, github: string | null) {
   const row = await ctx.store.getRef(ctx.sync.id, name);
+  // A ref both sides agreed on when a sync started without backfill has that commit as its base until one is recorded.
+  const setup = ctx.sync.refsAtSetup;
+  const setupBase = setup && setup.ghost[name] === setup.github[name] ? (setup.ghost[name] ?? null) : null;
   const both = ghost !== null && github !== null && ghost !== github;
   const action = decideRef({
-    base: row?.baseSha ?? null,
+    base: row?.baseSha ?? setupBase,
     ghost,
     github,
     ghostHasGithub: both && (await ctx.git.isAncestor(ctx.dir, github, ghost)),

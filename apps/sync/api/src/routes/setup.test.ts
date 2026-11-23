@@ -111,7 +111,16 @@ describe("POST /api/syncs", () => {
       ghostInstallationId: 11,
       githubInstallationId: 22,
       status: "backfilling",
+      backfill: true,
     });
+    expect(reconciled).toEqual([id]);
+  });
+
+  test("without backfill, the sync is saved to copy only what happens from now on", async () => {
+    const { call, store, reconciled } = setup(repoRoutes);
+    const response = await call("POST", "/api/syncs", { ...existing, backfill: false });
+    const { id } = (await response.json()) as { id: string };
+    expect(await store.getSync(id)).toMatchObject({ backfill: false });
     expect(reconciled).toEqual([id]);
   });
 

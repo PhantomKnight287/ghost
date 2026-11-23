@@ -17,7 +17,7 @@ export type ClaimedJob = { id: number; syncId: string; action: SyncAction; claim
 export type Store = {
   findLink(syncId: string, kind: LinkKind, side: Side, id: string): Promise<Link | null>;
   /** `synced` is what both sides agree on right after the write; left out, nothing is known yet. */
-  saveLink(link: Omit<Link, "updatedAt" | "synced"> & { synced?: SyncedFields | null }): Promise<void>;
+  saveLink(link: Omit<Link, "updatedAt" | "synced" | "pairedAt"> & { synced?: SyncedFields | null; pairedAt?: Date | null }): Promise<void>;
   deleteLink(syncId: string, kind: LinkKind, side: Side, id: string): Promise<void>;
   /** How many items of each kind are paired; kinds with none are left out. */
   countLinks(syncId: string): Promise<Partial<Record<LinkKind, number>>>;
@@ -35,8 +35,8 @@ export type Store = {
   getSync(id: string): Promise<SyncRow | null>;
   findSyncByRepo(side: Side, repoId: string): Promise<SyncRow | null>;
   listSyncs(filter: { status?: SyncRow["status"][]; ownerId?: string; installation?: { side: Side; id: number } }): Promise<SyncRow[]>;
-  createSync(input: Pick<SyncRow, "ownerId" | "ghostRepoId" | "ghostFullName" | "githubRepoId" | "githubFullName" | "ghostInstallationId" | "githubInstallationId">): Promise<SyncRow>;
-  updateSync(id: string, patch: Partial<Pick<SyncRow, "status" | "lastError" | "disconnectReason" | "lastReconciledAt" | "ghostInstallationId" | "githubInstallationId">>): Promise<void>;
+  createSync(input: Pick<SyncRow, "ownerId" | "ghostRepoId" | "ghostFullName" | "githubRepoId" | "githubFullName" | "ghostInstallationId" | "githubInstallationId"> & { backfill?: boolean }): Promise<SyncRow>;
+  updateSync(id: string, patch: Partial<Pick<SyncRow, "status" | "lastError" | "disconnectReason" | "lastReconciledAt" | "ghostInstallationId" | "githubInstallationId" | "refsAtSetup">>): Promise<void>;
   /** Removes the sync with its links, refs and activity. */
   deleteSync(id: string): Promise<void>;
   prune(now: Date): Promise<void>;
@@ -69,7 +69,7 @@ export function createStore(db: PostgresJsDatabase<typeof schema>): Store {
         await tx
           .delete(link)
           .where(and(eq(link.syncId, next.syncId), eq(link.kind, next.kind), or(eq(link.ghostId, next.ghostId), eq(link.githubId, next.githubId))));
-        await tx.insert(link).values({ ...next, synced: next.synced ?? null });
+        await tx.insert(link).values({ ...next, synced: next.synced ?? null, pairedAt: next.pairedAt ?? null });
       });
     },
     async deleteLink(syncId, kind, side, id) {

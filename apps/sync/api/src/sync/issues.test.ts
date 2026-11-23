@@ -46,7 +46,7 @@ describe("syncIssue", () => {
       });
       expect(await syncIssue(ctx, "github", 5)).toBe(12);
       expect(writes(ctx.ghost)).toEqual([]);
-      expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toMatchObject({ ghostId: "12" });
+      expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toMatchObject({ ghostId: "12", pairedAt: expect.any(Date) });
       expect(ctx.store.activity.map((a) => [a.direction, a.summary])).toEqual([["ghost", "Paired GitHub issue #5 with its twin, Ghost issue #12"]]);
     });
 

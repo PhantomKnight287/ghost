@@ -95,9 +95,18 @@ export async function reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promi
   const first = !sync.lastReconciledAt;
   if (first && sync.status !== "backfilling") await store.updateSync(sync.id, { status: "backfilling" });
   const run: SyncContext = { ...ctx, rest: { ghost: tagged("ghost", ctx.rest.ghost), github: tagged("github", ctx.rest.github) } };
-  const since = sync.lastReconciledAt ? `&since=${new Date(sync.lastReconciledAt.getTime() - SINCE_MARGIN_MS).toISOString()}` : "";
+  // Without backfill, the margin never reaches back past the sync's start, into history it was told to leave.
+  const floor = sync.backfill ? 0 : sync.createdAt.getTime();
+  const since = sync.lastReconciledAt ? `&since=${new Date(Math.max(sync.lastReconciledAt.getTime() - SINCE_MARGIN_MS, floor)).toISOString()}` : "";
 
   try {
+    if (first && !sync.backfill) {
+      // Nothing from before is copied; where each ref stood is all a later pass needs to tell history from new work.
+      const refs = await ctx.git.fetchBoth(ctx.dir, await ctx.remote());
+      await store.updateSync(sync.id, { status: "active", lastError: null, lastReconciledAt: sync.createdAt, refsAtSetup: { ghost: Object.fromEntries(refs.ghost), github: Object.fromEntries(refs.github) } });
+      await store.addActivity({ syncId: sync.id, direction: null, kind: "reconcile", summary: "Sync started without history: only what happens from now on is copied", error: null });
+      return;
+    }
     await syncRefs(run);
     for (const side of SIDES) {
       for await (const item of run.rest[side].paginate<Listed>(`${repoPath(run, side)}/issues?state=all${since}`)) {

@@ -4,11 +4,12 @@ import type { SyncAction } from "../sync/action.ts";
 
 export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | "error";
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
-/** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */
-/** An item's fields as both sides last agreed on them, so a later pass can tell which side changed since. */
 type SyncedValue = string | boolean | string[] | null;
-/** A field's agreed value, or the two values paired twins agreed to keep apart until either side changes. */
+/** An item's fields as both sides last agreed on them, so a later pass can tell which side changed since. A field is either its agreed value or the two values paired twins agreed to keep apart until either side changes. */
 export type SyncedFields = Record<string, SyncedValue | { differ: SyncedValue[] }>;
+/** Each side's refs (name to sha) when a sync started without its history. */
+export type RefsAtSetup = Record<Side, Record<string, string>>;
+/** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */
 export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean; posted?: string[] };
 
 export const sync = pgTable("sync", {
@@ -24,6 +25,10 @@ export const sync = pgTable("sync", {
   lastError: text("last_error"),
   disconnectReason: text("disconnect_reason"),
   lastReconciledAt: timestamp("last_reconciled_at", { withTimezone: true }),
+  /** False when the owner chose to sync only what happens from now on: nothing from before the sync started is copied. */
+  backfill: boolean("backfill").notNull().default(true),
+  /** Set by the first run of a sync without backfill; a ref still where it was then is history, left alone until someone moves it. */
+  refsAtSetup: jsonb("refs_at_setup").$type<RefsAtSetup>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -39,6 +44,8 @@ export const link = pgTable(
     ghostRestId: text("ghost_rest_id"),
     githubId: text("github_id").notNull(),
     synced: jsonb("synced").$type<SyncedFields>(),
+    /** When twins a person kept by hand were paired; each keeps its own comments and reviews from before. */
+    pairedAt: timestamp("paired_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.syncId, table.kind, table.ghostId] }), unique().on(table.syncId, table.kind, table.githubId)],
