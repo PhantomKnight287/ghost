@@ -96,7 +96,7 @@ describe("syncRefs", () => {
       await syncRefs(ctx);
       ctx.git.rejects.clear();
       await syncRefs(ctx);
-      const attempt = { side: "github", ref: main, sha: "b", expected: "a" };
+      const attempt = { side: "github" as const, ref: main, sha: "b", expected: "a" };
       expect(ctx.git.pushes).toEqual([attempt, attempt]);
       expect((await ctx.store.getRef(ctx.sync.id, main))?.diverged).toBeNull();
     });
