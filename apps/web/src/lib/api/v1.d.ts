@@ -3353,6 +3353,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A commit by sha or branch name; a branch whose name holds a slash is not reachable here */
+        get: operations["ReposController_commit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/git/tags/{tagSha}": {
         parameters: {
             query?: never;
@@ -7634,12 +7651,6 @@ export interface components {
             /** Format: date-time */
             date: string;
         };
-        GithubGitTagObjectDTO: {
-            /** @example commit */
-            type: string;
-            sha: string;
-            url: string;
-        };
         GithubCommitVerificationDTO: {
             verified: boolean;
             /** @enum {string} */
@@ -7647,6 +7658,32 @@ export interface components {
             signature: string | null;
             payload: string | null;
             verified_at: string | null;
+        };
+        GithubGitCommitDTO: {
+            author: components["schemas"]["GithubGitActorDTO"];
+            committer: components["schemas"]["GithubGitActorDTO"];
+            message: string;
+            url: string;
+            /** @example 0 */
+            comment_count: number;
+            verification: components["schemas"]["GithubCommitVerificationDTO"];
+        };
+        GithubPullCommitDTO: {
+            sha: string;
+            node_id: string;
+            commit: components["schemas"]["GithubGitCommitDTO"];
+            url: string;
+            html_url: string;
+            comments_url: string;
+            /** @description The account whose verified email the commit was authored with. */
+            author: components["schemas"]["GithubSimpleUserDTO"] | null;
+            committer: components["schemas"]["GithubSimpleUserDTO"] | null;
+        };
+        GithubGitTagObjectDTO: {
+            /** @example commit */
+            type: string;
+            sha: string;
+            url: string;
         };
         GithubGitTagDTO: {
             node_id: string;
@@ -8260,26 +8297,6 @@ export interface components {
             base?: string;
             /** @description Accepted and ignored. */
             maintainer_can_modify?: boolean;
-        };
-        GithubGitCommitDTO: {
-            author: components["schemas"]["GithubGitActorDTO"];
-            committer: components["schemas"]["GithubGitActorDTO"];
-            message: string;
-            url: string;
-            /** @example 0 */
-            comment_count: number;
-            verification: components["schemas"]["GithubCommitVerificationDTO"];
-        };
-        GithubPullCommitDTO: {
-            sha: string;
-            node_id: string;
-            commit: components["schemas"]["GithubGitCommitDTO"];
-            url: string;
-            html_url: string;
-            comments_url: string;
-            /** @description The account whose verified email the commit was authored with. */
-            author: components["schemas"]["GithubSimpleUserDTO"] | null;
-            committer: components["schemas"]["GithubSimpleUserDTO"] | null;
         };
         GithubPullFileDTO: {
             filename: string;
@@ -17259,6 +17276,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_commit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubPullCommitDTO"];
                 };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */

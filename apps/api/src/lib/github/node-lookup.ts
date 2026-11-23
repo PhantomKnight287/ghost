@@ -4,6 +4,8 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { isoTimestamp } from '../db/sql.js';
 import { visibleReview } from '../pull-requests/reviews.js';
 import type { UserRow } from './nodes.js';
+import type { GithubOrigins } from './origins.js';
+import { type RestUser, toUserRest } from './rest.js';
 
 /** The repository and number behind an issue's Ghost id, or null. */
 export async function issueRefOf(db: Database, issueId: string) {
@@ -127,6 +129,35 @@ export type PullRequestRow = Pick<
   | 'mergeCommitSha'
   | 'mergedAt'
 >;
+
+/** The accounts behind commit emails, as GitHub's simple-user, keyed by lowercased email; an account without a username has no simple-user. */
+export async function commitUsersOf(
+  db: Database,
+  emails: string[],
+  origins: GithubOrigins,
+) {
+  const found = await usersByEmailOf(db, emails);
+  return new Map<string, RestUser>(
+    [...found].flatMap(([email, row]) =>
+      row.username
+        ? [
+            [
+              email,
+              toUserRest(
+                {
+                  ghostId: row.id,
+                  numericId: row.numericId,
+                  login: row.username,
+                  avatarUrl: row.image,
+                },
+                origins,
+              ),
+            ] as const,
+          ]
+        : [],
+    ),
+  );
+}
 
 /** The accounts behind commit author emails, keyed by the lowercased email. Only verified addresses count, as on GitHub, so nobody claims another's commits by adding their address. */
 export async function usersByEmailOf(db: Database, emails: string[]) {

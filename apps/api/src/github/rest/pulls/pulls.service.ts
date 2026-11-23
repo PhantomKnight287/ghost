@@ -14,10 +14,9 @@ import {
   NotMergeableError,
   UnprocessableError,
 } from '../../../lib/github/github.errors.js';
-import { encodeNodeId } from '../../../lib/github/node-id.js';
 import {
+  commitUsersOf,
   pullRequestRowsOf,
-  usersByEmailOf,
 } from '../../../lib/github/node-lookup.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import {
@@ -26,8 +25,8 @@ import {
   RestPage,
   type RestRepositoryObject,
   toPullRest,
+  toCommitRest,
   toRepositoryRest,
-  toUserRest,
 } from '../../../lib/github/rest.js';
 import {
   NothingToMergeError,
@@ -283,47 +282,18 @@ export class GithubPullsService {
       limit: MAX_COMMITS,
       oldestFirst: true,
     });
-    const users = await this.commitUsers(
+    const origins = githubOrigins(this.config);
+    const users = await commitUsersOf(
+      this.db,
       commits.flatMap((commit) => [commit.authorEmail, commit.committerEmail]),
+      origins,
     );
-    const userOf = (email: string) => users.get(email.toLowerCase()) ?? null;
-    const apiUrl = `${githubOrigins(this.config).api}/api/v3/repos/${repository.nameWithOwner}`;
     return new RestPage<GithubPullCommitDTO>(
-      commits.slice(page.offset, page.offset + page.perPage).map((commit) => ({
-        sha: commit.sha,
-        node_id: encodeNodeId('Commit', `${repository.ghostId}:${commit.sha}`),
-        commit: {
-          author: {
-            name: commit.authorName,
-            email: commit.authorEmail,
-            date: commit.authoredAt,
-          },
-          committer: {
-            name: commit.committerName,
-            email: commit.committerEmail,
-            date: commit.committedAt,
-          },
-          message: [commit.subject, commit.body].filter(Boolean).join('\n\n'),
-          url: `${apiUrl}/git/commits/${commit.sha}`,
-          comment_count: 0,
-          verification: {
-            verified: commit.verification?.verified ?? false,
-            reason: commit.verification?.verified
-              ? 'valid'
-              : commit.verification?.keyId
-                ? 'unknown_key'
-                : 'unsigned',
-            signature: null,
-            payload: null,
-            verified_at: null,
-          },
-        },
-        url: `${apiUrl}/commits/${commit.sha}`,
-        html_url: `${repository.url}/commit/${commit.sha}`,
-        comments_url: `${apiUrl}/commits/${commit.sha}/comments`,
-        author: userOf(commit.authorEmail),
-        committer: userOf(commit.committerEmail),
-      })),
+      commits
+        .slice(page.offset, page.offset + page.perPage)
+        .map((commit) =>
+          toCommitRest(commit, commit.verification, users, repository, origins),
+        ),
       page,
       Math.min(total, MAX_COMMITS),
     );
@@ -566,32 +536,6 @@ export class GithubPullsService {
       reviewComments: await this.reviewCommentCount(pull.id),
     });
     return rest!;
-  }
-
-  /** The accounts behind commit emails, as GitHub's simple-user, keyed by lowercased email. */
-  private async commitUsers(emails: string[]) {
-    const origins = githubOrigins(this.config);
-    const found = await usersByEmailOf(this.db, emails);
-    return new Map(
-      [...found].flatMap(([email, row]) =>
-        row.username
-          ? [
-              [
-                email,
-                toUserRest(
-                  {
-                    ghostId: row.id,
-                    numericId: row.numericId,
-                    login: row.username,
-                    avatarUrl: row.image,
-                  },
-                  origins,
-                ),
-              ] as const,
-            ]
-          : [],
-      ),
-    );
   }
 
   private async reviewCommentCount(pullRequestId: string) {

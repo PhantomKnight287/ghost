@@ -17,6 +17,7 @@ import { DATABASE } from '../../../database/database.module.js';
 import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
 import { findReadmePath } from '../../../lib/git/blob/find-readme.js';
 import { isTextBlob, readBlob } from '../../../lib/git/blob/read-blob.js';
+import { readCommit } from '../../../lib/git/commits/list-commits.js';
 import { readTagObject } from '../../../lib/git/tags/read-tag.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { sameName } from '../../../lib/db/sql.js';
@@ -25,11 +26,13 @@ import {
   RequiresAuthenticationError,
   UnprocessableError,
 } from '../../../lib/github/github.errors.js';
+import { commitUsersOf } from '../../../lib/github/node-lookup.js';
 import { encodeNodeId } from '../../../lib/github/node-id.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import {
   pageOf,
   RestPage,
+  toCommitRest,
   toRepositoryRest,
 } from '../../../lib/github/rest.js';
 import { hasScope } from '../../../lib/github/scopes.js';
@@ -140,6 +143,34 @@ export class GithubReposService {
       path,
       content: blob.content.toString('base64'),
     };
+  }
+
+  /** A commit by sha or branch name; GitHub answers 422 for a ref that names no commit. */
+  async commit({ owner, repo, viewer }: GithubRepositoryTarget, ref: string) {
+    const node = await this.repositoryNodes.repository(owner, repo, viewer);
+    const gitDir = await this.materializer.open({
+      id: node.ghostId,
+      defaultBranch: node.defaultBranch,
+    });
+    const commit = await readCommit({ gitDir, sha: ref });
+    if (!commit)
+      throw new UnprocessableError(`No commit found for SHA: ${ref}`);
+    const origins = githubOrigins(this.config);
+    const [verdicts, users] = await Promise.all([
+      this.verification.verifyCommits({ gitDir, commits: [commit] }),
+      commitUsersOf(
+        this.db,
+        [commit.authorEmail, commit.committerEmail],
+        origins,
+      ),
+    ]);
+    return toCommitRest(
+      commit,
+      verdicts.get(commit.sha) ?? null,
+      users,
+      node,
+      origins,
+    );
   }
 
   /** 404 for anything but an annotated tag object, a commit sha included, as on GitHub. */
