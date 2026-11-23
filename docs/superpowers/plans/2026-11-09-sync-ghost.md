@@ -602,7 +602,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 **Files:**
 - Create: `apps/sync/api/Dockerfile`, `apps/sync/api/README.md`, `apps/sync/web/Dockerfile` (or Railway's builder)
 
-- [ ] **Step 1:** API Dockerfile from `apps/importer/Dockerfile` plus `git`, `VOLUME /data`, runs migrations on start.
+- [x] **Step 1:** API Dockerfile from `apps/importer/Dockerfile` plus `git`, `VOLUME /data`, runs migrations on start.
 - [ ] **Step 2:** README: both apps' exact registration settings (the spec's Two apps table, webhook URLs, callback URLs, "Request user authorization during installation" on), environment, protected branches and the bypass note, local dev with a throwaway Postgres.
 - [ ] **Step 3:** Register the production Ghost App and GitHub App, create the Railway services, Postgres and volume, set variables, add `sync.<domain>` and the API domain.
 - [ ] **Step 4:** End-to-end by hand: pair a scratch Ghost repo with a new private GitHub repo; push on each side; open a PR on each side; install CodeRabbit on the GitHub repo and run `@coderabbitai explain this` from Ghost; force-push on one side; make both sides diverge and see the flag; delete the sync.
