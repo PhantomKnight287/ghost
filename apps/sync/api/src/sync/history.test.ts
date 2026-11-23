@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { withMarker } from "../format.ts";
 import { writes } from "../lib/fake-rest.ts";
 import { ghostNodeId, testContext } from "../lib/test-context.ts";
 import { syncComment } from "./comments.ts";
@@ -36,6 +37,17 @@ describe("twins keep their own history from before they were paired", () => {
     await twins(ctx, "pull");
     await syncReviewComment(ctx, "github", 8, "501");
     expect(writes(ctx.ghost)).toEqual([]);
+  });
+
+  test("a new reply in a thread from before pairing goes on the same line as a comment of its own", async () => {
+    const reply = { ...lineComment(after), id: 502, node_id: "PRRC_502", body: "fixed", in_reply_to_id: 501 };
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/pulls/comments/502": reply, "GET /repos/acme-gh/app/pulls/comments/501": lineComment(before) },
+      ghost: { "POST /repos/acme/app/pulls/3/comments": { id: 601, node_id: ghostNodeId("PRRC", "r-uuid") } },
+    });
+    await twins(ctx, "pull");
+    await syncReviewComment(ctx, "github", 8, "502");
+    expect(writes(ctx.ghost)).toEqual([{ method: "POST", path: "/repos/acme/app/pulls/3/comments", body: { commit_id: "h1", path: "src/a.ts", line: 3, side: "RIGHT", body: withMarker("fixed", "github", "coderabbitai[bot]") } }]);
   });
 
   test("items copied rather than paired bring their whole history", async () => {

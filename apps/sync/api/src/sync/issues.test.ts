@@ -42,7 +42,7 @@ describe("syncIssue", () => {
     test("is paired instead of copied, and nothing is written to either side", async () => {
       const ctx = testContext({
         github: { "GET /repos/acme-gh/app/issues/5": githubIssue() },
-        ghost: { "GET /repos/acme/app/issues?state=all": [{ ...twin({ number: 11, title: "Other" }) }, twin()] },
+        ghost: { "GET /repos/acme/app/issues?state=all": [{ ...twin({ number: 11, title: "Other" }) }, twin()], "GET /repos/acme/app/issues/12": twin() },
       });
       expect(await syncIssue(ctx, "github", 5)).toBe(12);
       expect(writes(ctx.ghost)).toEqual([]);
@@ -71,6 +71,23 @@ describe("syncIssue", () => {
       });
       await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "4" });
       expect(await syncIssue(ctx, "github", 5)).toBe(13);
+    });
+
+    test("a twin retitled since the list was read is no twin, so the issue is copied", async () => {
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+        ghost: { "GET /repos/acme/app/issues?state=all": [twin()], "GET /repos/acme/app/issues/12": twin({ title: "Renamed" }), "POST /repos/acme/app/issues": { number: 13 } },
+      });
+      expect(await syncIssue(ctx, "github", 5)).toBe(13);
+    });
+
+    test("the pair agrees on the twin as it is now, not as the list showed it", async () => {
+      const ctx = testContext({
+        github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+        ghost: { "GET /repos/acme/app/issues?state=all": [twin({ body: "stale" })], "GET /repos/acme/app/issues/12": twin({ body: "current" }) },
+      });
+      await syncIssue(ctx, "github", 5);
+      expect((await ctx.store.findLink(ctx.sync.id, "issue", "github", "5"))?.synced).toMatchObject({ body: { differ: { ghost: "current", github: "Steps" } } });
     });
 
     test("two issues with the same title are no twin, so the issue is copied", async () => {

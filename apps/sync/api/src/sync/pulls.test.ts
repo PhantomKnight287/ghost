@@ -81,6 +81,22 @@ describe("syncPull, unlinked", () => {
     expect(ctx.store.activity.map((a) => a.summary)).toEqual(["Paired Ghost pull request #3 with its twin, GitHub pull request #8"]);
   });
 
+  test("a twin merged before pairing does not close its open twin on a later pass", async () => {
+    const merged = githubPull({ user: { login: "alice" }, body: "Ghost twin: #3", state: "closed", merged: true });
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull() },
+      github: { "GET /repos/acme-gh/app/pulls?state=all&head=acme-gh:feat": [merged], "GET /repos/acme-gh/app/pulls/8": merged },
+    });
+    ctx.git.repos.github.set(feat, "h1");
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await ctx.store.setBase(ctx.sync.id, feat, "h1");
+    await syncPull(ctx, "ghost", 3);
+    await syncPull(ctx, "github", 8);
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect(writes(ctx.github)).toEqual([]);
+  });
+
   test("GitHub to Ghost the same way", async () => {
     const ctx = testContext({
       git: fakeGit({ github: { [feat]: "h1", [main]: "m1" }, ghost: { [main]: "m1" } }),

@@ -66,10 +66,20 @@ async function findTwinIssue(ctx: SyncContext, side: Side, title: string) {
     })();
     issueLists.set(ctx.rest[side], listed);
   }
-  const candidates = (await listed).filter((issue) => !issue.pull_request && issue.user.login !== ctx.bot[side] && issue.title === title);
+  const isTwin = (issue: Issue) => !issue.pull_request && issue.user.login !== ctx.bot[side] && issue.title === title;
   const unlinked = [];
-  for (const issue of candidates) if (!(await ctx.store.findLink(ctx.sync.id, "issue", side, String(issue.number)))) unlinked.push(issue);
-  return unlinked.length === 1 ? unlinked[0] : undefined;
+  for (const issue of (await listed).filter(isTwin)) if (!(await ctx.store.findLink(ctx.sync.id, "issue", side, String(issue.number)))) unlinked.push(issue);
+  const [found] = unlinked;
+  if (unlinked.length !== 1 || !found) return undefined;
+  // The list is as old as this run; the pair's agreed state must be the twin as it is now, and it must still be a twin.
+  let current: Issue;
+  try {
+    current = await ctx.rest[side].request<Issue>("GET", path(ctx, side, `/issues/${found.number}`));
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    return undefined;
+  }
+  return isTwin(current) ? current : undefined;
 }
 
 /**
@@ -93,7 +103,7 @@ export async function syncIssue(ctx: SyncContext, from: Side, number: number): P
     const twin = await findTwinIssue(ctx, to, source.title);
     if (twin) {
       const ids = from === "ghost" ? { ghostId: String(number), githubId: String(twin.number) } : { ghostId: String(twin.number), githubId: String(number) };
-      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids, synced: pairedFields(issueFields(source), issueFields(twin)), pairedAt: new Date() });
+      await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostRestId: null, ...ids, synced: pairedFields(from === "ghost" ? { ghost: issueFields(source), github: issueFields(twin) } : { ghost: issueFields(twin), github: issueFields(source) }), pairedAt: new Date() });
       await done(ctx, to, "issue", `Paired ${SIDE_NAME[from]} issue #${number} with its twin, ${SIDE_NAME[to]} issue #${twin.number}`);
       return twin.number;
     }
@@ -113,7 +123,7 @@ export async function syncIssue(ctx: SyncContext, from: Side, number: number): P
       await skipped(ctx, to, "issue", `${SIDE_NAME[to]} issue #${counterpart}, the copy of ${SIDE_NAME[from]} issue #${number}, is gone`, error);
       return counterpart;
     }
-    const { write, agreed } = mergeFields(issueFields(source), issueFields(target), link.synced, isNewer(source, target));
+    const { write, agreed } = mergeFields(from, issueFields(source), issueFields(target), link.synced, isNewer(source, target));
     if (Object.keys(write).length > 0) {
       await ctx.rest[to].request("PATCH", targetPath, "body" in write ? { ...write, body: fields.body } : write);
       for (const summary of describeChanges(write, `${SIDE_NAME[to]} issue #${counterpart}`)) await done(ctx, to, "issue", summary);

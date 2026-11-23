@@ -1,7 +1,8 @@
 import type { Remote } from "../git.ts";
-import type { Side } from "../side.ts";
+import { other, type Side } from "../side.ts";
 import type { RefFlag } from "../store.ts";
 import type { SyncContext } from "./context.ts";
+import { syncStatuses } from "./statuses.ts";
 
 export type RefState = { base: string | null; ghost: string | null; github: string | null; ghostHasGithub: boolean; githubHasGhost: boolean };
 export type RefAction = { kind: "none" } | { kind: "record"; sha: string | null } | { kind: "copy"; to: Side; sha: string | null; expected: string | null } | { kind: "diverged" };
@@ -60,10 +61,12 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
   if (action.kind === "none") return "done";
   if (action.kind === "record") {
     await ctx.store.setBase(ctx.sync.id, name, action.sha);
+    await forgetSetup(ctx, name);
     return "done";
   }
   if (action.kind === "diverged") {
     await flag(ctx, name, row?.diverged ?? null, { ghost, github, reason: "diverged" });
+    await forgetSetup(ctx, name);
     return "done";
   }
 
@@ -73,11 +76,25 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
     const verb = action.sha === null ? "Deleted" : action.expected === null ? "Created" : "Moved";
     const summary = `${verb} ${name.replace(/^refs\/(heads|tags)\//, "")}${action.sha === null ? "" : ` at ${short(action.sha)}`}`;
     await ctx.store.addActivity({ syncId: ctx.sync.id, direction: action.to, kind: "refs", summary, error: null });
+    await forgetSetup(ctx, name);
+    // Statuses reported before the commit arrived were skipped then; the commit is here now.
+    if (action.sha !== null) await syncStatuses(ctx, other(action.to), action.sha);
     return "done";
   }
   if (pushed.reason === "lease") return "lease";
   await flag(ctx, name, row?.diverged ?? null, { ghost, github, reason: `rejected: ${pushed.message}` });
+  await forgetSetup(ctx, name);
   return "done";
+}
+
+/** Once a ref has been synced, where it stood at setup says nothing more: a deletion synced since removes its base, and the setup commit must not come back as one. */
+async function forgetSetup(ctx: SyncContext, name: string) {
+  const setup = ctx.sync.refsAtSetup;
+  if (!setup || (!(name in setup.ghost) && !(name in setup.github))) return;
+  const { [name]: _ghost, ...ghost } = setup.ghost;
+  const { [name]: _github, ...github } = setup.github;
+  ctx.sync.refsAtSetup = { ghost, github };
+  await ctx.store.updateSync(ctx.sync.id, { refsAtSetup: ctx.sync.refsAtSetup });
 }
 
 /** Records the flag and tells people once per distinct state; a notice that failed is retried until it lands. */

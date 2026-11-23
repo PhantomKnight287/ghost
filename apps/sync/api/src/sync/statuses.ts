@@ -6,12 +6,15 @@ import { done, isNotFound, skipped } from "./write.ts";
 
 type Status = { context: string; state: string; description: string | null; target_url: string | null; creator: { login: string } | null };
 
+/** GitHub treats contexts as case-insensitive, so `CI` and `ci` are one context. */
+const contextKey = (status: Status) => status.context.toLowerCase();
+
 /** The newest status of each context on `sha`, or none when the commit is not there. Both hosts list statuses newest first. */
 async function latestByContext(ctx: SyncContext, side: Side, sha: string) {
   const latest = new Map<string, Status>();
   try {
     for await (const status of ctx.rest[side].paginate<Status>(`${repoPath(ctx, side)}/commits/${sha}/statuses`)) {
-      if (!latest.has(status.context)) latest.set(status.context, status);
+      if (!latest.has(contextKey(status))) latest.set(contextKey(status), status);
     }
   } catch (error) {
     // GitHub answers 422 "No commit found for SHA" for a commit it has never seen.
@@ -31,12 +34,12 @@ export async function syncStatuses(ctx: SyncContext, from: Side, sha: string) {
   const to = other(from);
   const source = [...(await latestByContext(ctx, from, sha)).values()].filter((status) => status.creator?.login !== ctx.bot[from]);
   if (source.length === 0) return;
-  // The commit reaches the other side with its branch; reconcile copies the statuses once it has.
+  // The commit reaches the other side with its branch, and pushing it there copies its statuses.
   if (!(await commitExists(ctx, to, sha))) return;
 
   const target = await latestByContext(ctx, to, sha);
   for (const status of source) {
-    const current = target.get(status.context);
+    const current = target.get(contextKey(status));
     // A context someone else reports on the other side is theirs; ours would only fight it.
     if (current && (current.creator?.login !== ctx.bot[to] || same(current, status))) continue;
     const body = { context: status.context, state: status.state, ...(status.description ? { description: status.description } : {}), ...(status.target_url ? { target_url: status.target_url } : {}) };

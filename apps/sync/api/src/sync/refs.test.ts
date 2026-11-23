@@ -76,6 +76,19 @@ describe("syncRefs", () => {
       expect(ctx.git.pushes).toEqual([{ side: "github", ref: main, sha: null, expected: "a" }]);
     });
 
+    test("once a deletion has synced, a branch recreated at its setup commit is created again, not taken for the untouched original", async () => {
+      const { [main]: _, ...rest } = setup.ghost;
+      const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: rest, github: setup.github }) });
+      await syncRefs(ctx);
+      ctx.git.repos.ghost.set(main, "a");
+      await syncRefs(ctx);
+      expect(ctx.git.pushes).toEqual([
+        { side: "github", ref: main, sha: null, expected: "a" },
+        { side: "github", ref: main, sha: "a", expected: null },
+      ]);
+      expect((await ctx.store.getSync(ctx.sync.id))?.refsAtSetup).toEqual({ ghost: { "refs/heads/old": "o1" }, github: { "refs/heads/old": "o2", "refs/heads/gh-only": "g" } });
+    });
+
     test("a ref a webhook names is synced even if it has not moved", async () => {
       const ctx = testContext({ sync: { backfill: false, refsAtSetup: setup }, git: fakeGit({ ghost: setup.ghost, github: setup.github }) });
       await syncRefs(ctx, ["refs/heads/gh-only"]);
@@ -88,6 +101,16 @@ describe("syncRefs", () => {
     await syncRefs(ctx);
     expect(ctx.git.pushes).toEqual([{ side: "ghost", ref: main, sha: "b", expected: null }]);
     expect(await ctx.store.getRef(ctx.sync.id, main)).toMatchObject({ baseSha: "b", diverged: null });
+  });
+
+  test("statuses reported on a head before it reached the other side are copied once it is pushed there", async () => {
+    const ctx = testContext({
+      git: fakeGit({ github: { [main]: "b" } }),
+      github: { "GET /repos/acme-gh/app/commits/b/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }] },
+      ghost: { "GET /repos/acme/app/commits/b": { sha: "b" }, "GET /repos/acme/app/commits/b/statuses": [], "POST /repos/acme/app/statuses/b": {} },
+    });
+    await syncRefs(ctx);
+    expect(writes(ctx.ghost)).toEqual([{ method: "POST", path: "/repos/acme/app/statuses/b", body: { context: "Vercel", state: "success" } }]);
   });
 
   test("a branch moved on Ghost goes to GitHub with the base as lease", async () => {

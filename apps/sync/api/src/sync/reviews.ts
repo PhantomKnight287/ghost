@@ -184,8 +184,12 @@ export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber
       await syncReviewComment(ctx, from, pullNumber, parentKey);
       parentLink = await ctx.store.findLink(ctx.sync.id, "review_comment", from, parentKey);
     }
-    if (!parentLink) return skipped(ctx, to, "review_comment", `The thread of ${SIDE_NAME[from]} review comment on #${pullNumber} was not copied`, "parent not synced");
-    payload = { body, in_reply_to: Number(restIdOn(to, parentLink)) };
+    if (parentLink) payload = { body, in_reply_to: Number(restIdOn(to, parentLink)) };
+    else {
+      // A thread from before the sync's history began has no copy to join, so a new reply goes on the same line as a comment of its own.
+      const root = parent ?? (await ctx.rest.github.request<ReviewComment>("GET", `${repoPath(ctx, "github")}/pulls/comments/${comment.in_reply_to_id}`));
+      if (!isHistory(ctx, pull, root.created_at)) return skipped(ctx, to, "review_comment", `The thread of ${SIDE_NAME[from]} review comment on #${pullNumber} was not copied`, "parent not synced");
+    }
   }
 
   const commentsPath = `${repoPath(ctx, to)}/pulls/${counterpart}/comments`;

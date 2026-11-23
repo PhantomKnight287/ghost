@@ -6,7 +6,7 @@ export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | 
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
 type SyncedValue = string | boolean | string[] | null;
 /** An item's fields as both sides last agreed on them, so a later pass can tell which side changed since. A field is either its agreed value or the two values paired twins agreed to keep apart until either side changes. */
-export type SyncedFields = Record<string, SyncedValue | { differ: SyncedValue[] }>;
+export type SyncedFields = Record<string, SyncedValue | { differ: Record<Side, SyncedValue> }>;
 /** Each side's refs (name to sha) when a sync started without its history. */
 export type RefsAtSetup = Record<Side, Record<string, string>>;
 /** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */

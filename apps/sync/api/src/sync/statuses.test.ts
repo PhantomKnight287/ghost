@@ -85,6 +85,15 @@ describe("syncStatuses", () => {
     expect(writes(ctx.ghost)).toEqual([]);
   });
 
+  test("contexts differing only in case are one context, on either side", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/commits/h1/statuses": [status("Vercel", "success", "vercel[bot]"), status("vercel", "pending", "vercel[bot]"), status("ci", "failure", "github-ci[bot]")] },
+      ghost: { ...onGhost, "GET /repos/acme/app/commits/h1/statuses": [status("CI", "success", "ghost-ci[bot]")], "POST /repos/acme/app/statuses/h1": {} },
+    });
+    await syncStatuses(ctx, "github", "h1");
+    expect(writes(ctx.ghost).map((c) => c.body)).toEqual([{ context: "Vercel", state: "success", description: "Vercel success", target_url: "https://deploy.example.com/Vercel" }]);
+  });
+
   test("a commit the other side lacks yet is skipped silently for reconcile", async () => {
     const ctx = testContext({ github: { "GET /repos/acme-gh/app/commits/h1/statuses": [status("Vercel", "success", "vercel[bot]")] } });
     await syncStatuses(ctx, "github", "h1");
