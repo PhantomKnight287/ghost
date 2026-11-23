@@ -2,17 +2,8 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
-import {
-  CommitCheckRows,
-  CommitStatusIcon,
-  statusTitle,
-} from "@/components/repositories/commit-checks";
+import { CommitChecksHoverCard } from "@/components/repositories/commit-checks";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import type { components } from "@/lib/api/v1";
 
 type Commit = {
@@ -24,7 +15,7 @@ type Commit = {
   checks: components["schemas"]["CommitChecksDTO"] | null;
 };
 
-/** One row per commit, each linking to `${commitHref}/<sha>`; the tick opens the commit's checks. */
+/** One row per commit, each linking to `${commitHref}/<sha>`; the tick shows the commit's checks. */
 export function CommitList({
   commits,
   commitHref,
@@ -62,26 +53,11 @@ export function CommitList({
             </p>
           </div>
           {commit.checks && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={statusTitle[commit.checks.state]}
-                  className="flex shrink-0 items-center"
-                >
-                  <CommitStatusIcon state={commit.checks.state} />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="flex max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] flex-col gap-2 overflow-y-auto">
-                <p className="font-medium">
-                  {statusTitle[commit.checks.state]}
-                </p>
-                <CommitCheckRows
-                  checks={commit.checks}
-                  repository={repository}
-                />
-              </PopoverContent>
-            </Popover>
+            <CommitChecksHoverCard
+              checks={commit.checks}
+              repository={repository}
+              showCount
+            />
           )}
           <CommitVerificationBadge verification={commit.verification} />
           <Link
