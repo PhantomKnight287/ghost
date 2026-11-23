@@ -37,8 +37,8 @@ describe("Ghost events", () => {
     ["label.deleted", ghost("label.deleted", { label: { name: "bug" } }), g({ kind: "label", from: "ghost", name: "bug", deleted: true })],
     ["check_run.completed", ghost("check_run.completed", { checkRun: { id: "cr-uuid", numericId: 55, app: { slug: "ghost-ci" } } }), g({ kind: "check_run", from: "ghost", id: "55" })],
     ["check_suite.requested", ghost("check_suite.requested", { checkSuite: { headSha: "h1" } }), g({ kind: "sync_check", sha: "h1" })],
-    ["check_run.rerequested", ghost("check_run.rerequested", { checkRun: { numericId: 77 } }), g({ kind: "reconcile" })],
-    ["check_suite.rerequested", ghost("check_suite.rerequested", { checkSuite: { headSha: "h1" } }), g({ kind: "reconcile" })],
+    ["check_run.rerequested", ghost("check_run.rerequested", { checkRun: { numericId: 77, headSha: "h1" } }), g({ kind: "rerun", sha: "h1" })],
+    ["check_suite.rerequested", ghost("check_suite.rerequested", { checkSuite: { headSha: "h1" } }), g({ kind: "rerun", sha: "h1" })],
     ["commit_status.created", ghost("commit_status.created", { status: { id: "s-uuid", sha: "h1", context: "ci", state: "success" } }), g({ kind: "status", from: "ghost", sha: "h1" })],
   ];
   test.each(cases)("%s", (_, payload, expected) => {

@@ -2,13 +2,13 @@ import type { Queue } from "./queue.ts";
 import { type Rest, RestError } from "./rest.ts";
 import { SIDE_NAME, type Side } from "./side.ts";
 import type { Store, SyncRow } from "./store.ts";
-import { syncCheckRun } from "./sync/checks.ts";
 import { syncStatuses } from "./sync/statuses.ts";
 import { type Comment, syncComment } from "./sync/comments.ts";
 import { repoPath, type SyncContext } from "./sync/context.ts";
 import { ghostKeyOfNodeId, syncIssue } from "./sync/issues.ts";
 import { syncPull } from "./sync/pulls.ts";
 import { syncRefs } from "./sync/refs.ts";
+import { syncCommitChecks } from "./sync/run.ts";
 import { keyOf, type Review, type ReviewComment, syncReview, syncReviewComment } from "./sync/reviews.ts";
 
 const SIDES: Side[] = ["ghost", "github"];
@@ -74,12 +74,7 @@ async function reconcileItem(ctx: SyncContext, side: Side, item: Listed) {
 
   // Runs and statuses on the default branch arrive by webhook; an open pull request's head is where reviews wait on checks.
   const { head } = await ctx.rest[side].request<PullHead>("GET", `${base}/pulls/${item.number}`);
-  for (const runSide of SIDES) {
-    for (const run of await all(ctx.rest[runSide].paginate<{ id: number }>(`${repoPath(ctx, runSide)}/commits/${head.sha}/check-runs`))) {
-      await syncCheckRun(ctx, runSide, String(run.id));
-    }
-    await syncStatuses(ctx, runSide, head.sha);
-  }
+  await syncCommitChecks(ctx, head.sha);
 }
 
 /**
