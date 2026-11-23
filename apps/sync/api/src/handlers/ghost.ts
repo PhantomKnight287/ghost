@@ -13,7 +13,7 @@ type GhostPayload = {
   comment?: { id: string };
   review?: { id: string };
   label?: { name: string };
-  checkRun?: { numericId: number };
+  checkRun?: { numericId: number; headSha: string };
   checkSuite?: { headSha: string };
   status?: { sha: string };
 };
@@ -46,10 +46,10 @@ function actionOf(event: string, body: GhostPayload): SyncAction | null {
     case "label":
       return body.label && ["created", "edited", "deleted"].includes(verb) ? { kind: "label", from: "ghost", name: body.label.name, deleted: verb === "deleted" } : null;
     case "check_run":
-      if (verb === "rerequested") return { kind: "reconcile" };
+      if (verb === "rerequested") return body.checkRun ? { kind: "rerun", sha: body.checkRun.headSha } : null;
       return body.checkRun && (verb === "created" || verb === "completed") ? { kind: "check_run", from: "ghost", id: String(body.checkRun.numericId) } : null;
     case "check_suite":
-      if (verb === "rerequested") return { kind: "reconcile" };
+      if (verb === "rerequested") return body.checkSuite ? { kind: "rerun", sha: body.checkSuite.headSha } : null;
       return verb === "requested" && body.checkSuite ? { kind: "sync_check", sha: body.checkSuite.headSha } : null;
     case "commit_status":
       return verb === "created" && body.status ? { kind: "status", from: "ghost", sha: body.status.sha } : null;

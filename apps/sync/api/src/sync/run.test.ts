@@ -56,6 +56,33 @@ describe("the sync check on a pushed commit", () => {
     expect(writes(ctx.ghost).at(-1)?.body).toMatchObject({ conclusion: "failure", output: { summary: expect.stringContaining("refs/heads/main: rejected: protected branch") } });
   });
 
+  test("a re-run syncs again, then copies every check run and status already on the commit, which earlier events may have missed", async () => {
+    const ctx = testContext({
+      git: fakeGit({ ghost: { "refs/heads/main": "h1" } }),
+      github: {
+        "GET /repos/acme-gh/app/commits/h1/check-runs": [{ id: 1001 }],
+        "GET /repos/acme-gh/app/check-runs/1001": { id: 1001, name: "test", head_sha: "h1", status: "completed", conclusion: "success", html_url: "https://github.com/acme-gh/app/runs/1001", app: { slug: "github-actions" } },
+        "GET /repos/acme-gh/app/commits/h1/statuses": [{ context: "Vercel", state: "success", description: null, target_url: null, creator: { login: "vercel[bot]" } }],
+      },
+      ghost: {
+        ...checks,
+        "GET /repos/acme/app/commits/h1/check-runs": [],
+        "GET /repos/acme/app/commits/h1/status": { sha: "h1", state: "pending", total_count: 0 },
+        "GET /repos/acme/app/commits/h1/statuses": [],
+        "POST /repos/acme/app/statuses/h1": {},
+      },
+    });
+    ctx.ghost.routes["POST /repos/acme/app/check-runs"] = (body: { name: string }) => ({ id: body.name === "test" ? 55 : 77 });
+    await runAction(ctx, { kind: "rerun", sha: "h1" }, noReconcile);
+    expect(ctx.git.repos.github.get("refs/heads/main")).toBe("h1");
+    expect(writes(ctx.ghost).map((c) => `${c.method} ${c.path} ${(c.body as { name?: string; context?: string } | undefined)?.name ?? (c.body as { context?: string })?.context ?? ""}`)).toEqual([
+      "POST /repos/acme/app/check-runs Sync with GitHub",
+      "PATCH /repos/acme/app/check-runs/77 ",
+      "POST /repos/acme/app/check-runs test",
+      "POST /repos/acme/app/statuses/h1 Vercel",
+    ]);
+  });
+
   test("a sync that throws still closes the check, as a failure", async () => {
     const git = fakeGit();
     git.fetchBoth = async () => {

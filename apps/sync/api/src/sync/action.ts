@@ -14,4 +14,6 @@ export type SyncAction =
   /** Every context's newest status on `sha` is copied at once, so repeated status events on one commit collapse into one waiting job. */
   | { kind: "status"; from: Side; sha: string }
   | { kind: "sync_check"; sha: string }
+  /** Someone re-ran a check on Ghost: sync again, then copy whatever runs and statuses `sha` already has, since their events may have been missed. */
+  | { kind: "rerun"; sha: string }
   | { kind: "reconcile" };
