@@ -58,9 +58,10 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
     githubHasGhost: both && (await ctx.git.isAncestor(ctx.dir, ghost, github)),
   });
 
-  if (action.kind === "none") return "done";
-  if (action.kind === "record") {
-    await ctx.store.setBase(ctx.sync.id, name, action.sha);
+  // A ref still where both sides had it at setup agrees, but only a recorded base tells pull requests so.
+  if (action.kind === "none" && (row?.baseSha || ghost === null)) return "done";
+  if (action.kind === "record" || action.kind === "none") {
+    await ctx.store.setBase(ctx.sync.id, name, action.kind === "record" ? action.sha : ghost);
     await forgetSetup(ctx, name);
     return "done";
   }
