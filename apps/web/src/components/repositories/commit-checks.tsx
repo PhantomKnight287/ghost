@@ -1,8 +1,13 @@
 import { cn } from "cn";
-import { ChevronDown, CircleCheck, CircleDot, CircleX } from "lucide-react";
+import { Check, ChevronDown, Dot, X } from "lucide-react";
 
 import { CheckRunRow } from "@/components/repositories/check-run-row";
 import { Badge } from "@/components/ui/badge";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import type { components } from "@/lib/api/v1";
 import { checkRunState, orderCheckRows } from "@/lib/checks";
 
@@ -17,7 +22,7 @@ const stateLabel = {
   pending: "Pending",
 } satisfies Record<State, string>;
 
-export const statusTitle = {
+const statusTitle = {
   success: "All checks have passed",
   failure: "Some checks were not successful",
   error: "Some checks were not successful",
@@ -35,11 +40,12 @@ export function CommitStatusIcon({
   return (
     <>
       {state === "success" ? (
-        <CircleCheck className={cn(icon, "text-emerald-500")} />
+        <Check className={cn(icon, "text-emerald-500")} />
       ) : state === "pending" ? (
-        <CircleDot className={cn(icon, "text-amber-500")} />
+        // a stroke this wide turns lucide's 1px dot into GitHub's filled one
+        <Dot strokeWidth={10} className={cn(icon, "text-amber-500")} />
       ) : (
-        <CircleX className={cn(icon, "text-red-500")} />
+        <X className={cn(icon, "text-red-500")} />
       )}
       <span className="sr-only">{stateLabel[state]}</span>
     </>
@@ -82,6 +88,41 @@ function StatusRow({
         </a>
       )}
     </li>
+  );
+}
+
+/** The commit's tick, with `passed/total` beside it when `showCount`; hovering it shows every check. */
+export function CommitChecksHoverCard({
+  checks,
+  repository,
+  showCount = false,
+}: {
+  checks: CommitChecksDTO;
+  repository: { username: string; repo: string };
+  showCount?: boolean;
+}) {
+  const states = statesOf(checks);
+  return (
+    <HoverCard openDelay={100}>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          aria-label={statusTitle[checks.state]}
+          className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+        >
+          <CommitStatusIcon state={checks.state} />
+          {showCount &&
+            `${states.filter((state) => state === "success").length}/${states.length}`}
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent className="flex max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] flex-col gap-2 overflow-y-auto">
+        <div>
+          <p className="font-medium">{statusTitle[checks.state]}</p>
+          <p className="text-xs text-muted-foreground">{summaryOf(checks)}</p>
+        </div>
+        <CommitCheckRows checks={checks} repository={repository} />
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
@@ -137,11 +178,15 @@ function sameRepository(
   );
 }
 
-function summaryOf(checks: CommitChecksDTO) {
-  const states = [
+function statesOf(checks: CommitChecksDTO) {
+  return [
     ...checks.statuses.map((status) => status.state),
     ...checks.checkRuns.map(checkRunState),
   ];
+}
+
+function summaryOf(checks: CommitChecksDTO) {
+  const states = statesOf(checks);
   const count = (wanted: State[]) =>
     states.filter((state) => wanted.includes(state)).length;
   const summary = [

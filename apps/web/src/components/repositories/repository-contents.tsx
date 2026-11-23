@@ -6,10 +6,12 @@ import {
   RotateCcwClock,
 } from "lucide-react";
 import Link from "next/link";
+
 import type { components } from "@/lib/api/v1";
 import { revisionHref } from "@/lib/revision";
 import { cn } from "@/lib/utils";
 import { FromNowHoverCard } from "../from-now-card";
+import { CommitChecksHoverCard } from "./commit-checks";
 import { SubmoduleLink } from "./submodule-link";
 
 type Contents = components["schemas"]["GetRepositoryContentsResponseDTO"];
@@ -62,6 +64,12 @@ export function RepositoryContents({
           <span className="min-w-0 truncate font-medium">
             {contents.commit.subject}
           </span>
+          {contents.checks && (
+            <CommitChecksHoverCard
+              checks={contents.checks}
+              repository={{ username: owner, repo: slug }}
+            />
+          )}
           <code className="ml-auto shrink-0 text-xs text-muted-foreground">
             {contents.commit.sha.slice(0, 7)}
           </code>

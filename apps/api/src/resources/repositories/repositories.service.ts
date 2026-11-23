@@ -1422,12 +1422,20 @@ export class RepositoriesService {
       const commit = await readCommitSummary({ gitDir: directory, ref });
       // No commit means the ref does not exist yet, i.e. nothing has been pushed.
       if (!commit) {
-        return { ref, path: prefix, commitCount: 0, commit: null, entries: [] };
+        return {
+          ref,
+          path: prefix,
+          commitCount: 0,
+          commit: null,
+          checks: null,
+          entries: [],
+        };
       }
 
-      const [entries, commitCount] = await Promise.all([
+      const [entries, commitCount, checks] = await Promise.all([
         listTree({ gitDir: directory, ref, prefix }),
         countCommits({ gitDir: directory, range: ref }),
+        this.commitChecks.checksFor([repository.id], [commit.sha]),
       ]);
       const submodules = await this.readSubmodules({
         directory,
@@ -1442,6 +1450,7 @@ export class RepositoriesService {
         path: prefix,
         commitCount,
         commit,
+        checks: checks.get(commit.sha) ?? null,
         // per-entry history would be one walk per path, which only the index makes cheap; a point-in-time listing does without it
         entries: entries.map((entry) => ({
           ...entry,
@@ -1464,12 +1473,17 @@ export class RepositoriesService {
       }),
       this.readSubmodules({ directory, ref, owner: username, repo, entries }),
     ]);
+    const tip = commits.get('') ?? null;
+    const checks = tip
+      ? await this.commitChecks.checksFor([repository.id], [tip.sha])
+      : null;
 
     return {
       ref,
       path: prefix,
       commitCount,
-      commit: commits.get('') ?? null,
+      commit: tip,
+      checks: (tip && checks?.get(tip.sha)) ?? null,
       entries: entries.map((entry) => ({
         ...entry,
         lastCommit: commits.get(entry.path) ?? null,

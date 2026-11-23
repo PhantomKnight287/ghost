@@ -5298,145 +5298,6 @@ export interface components {
             /** @description Committer timestamp, ISO 8601. */
             committedAt: string;
         };
-        /**
-         * @description `tree` is a directory, `commit` a submodule.
-         * @enum {string}
-         */
-        TreeEntryType: "blob" | "tree" | "commit";
-        SubmoduleDTO: {
-            /**
-             * @description Repository URL as `.gitmodules` declares it, relative URLs left as written.
-             * @example ../lib.git
-             */
-            url: string;
-            /**
-             * @description Page showing the submodule: the repository on this instance or its tree on a known host such as GitHub, GitLab or Codeberg, both at the pinned commit (`oid`), or else the repository page on its host, always over http(s). `null` for a URL that names no host or no repository, such as a local path.
-             * @example https://ghost.example.com/octo/lib/tree/3f786850e387550fdab836ed7e6dc881de23001b
-             */
-            href: string | null;
-        };
-        TreeEntryDTO: {
-            /** @description Entry name within the listed directory. */
-            name: string;
-            /** @description Full path from the repository root. */
-            path: string;
-            /** @description `tree` is a directory, `commit` a submodule. */
-            type: components["schemas"]["TreeEntryType"];
-            /**
-             * @description Git file mode, e.g. `100644`.
-             * @example 100644
-             */
-            mode: string;
-            /** @description Object id of the blob or tree, or the commit a submodule is pinned to. */
-            oid: string;
-            /** @description Blob size in bytes; `null` for trees and submodules. */
-            size: number | null;
-            /** @description Newest commit touching this entry, or anything beneath it for a tree. `null` only if the index has not caught up with the ref. */
-            lastCommit: components["schemas"]["CommitSummaryDTO"] | null;
-            /** @description Where a submodule comes from. `null` for anything else, and for a submodule `.gitmodules` gives no URL. */
-            submodule: components["schemas"]["SubmoduleDTO"] | null;
-        };
-        GetRepositoryContentsResponseDTO: {
-            /**
-             * @description Ref that was listed, always fully qualified.
-             * @example refs/heads/main
-             */
-            ref: string;
-            /**
-             * @description Normalized directory that was listed, with a trailing slash. Empty at the root.
-             * @example src/services/
-             */
-            path: string;
-            /**
-             * @description Commits reachable from the ref. `0` for an unborn ref.
-             * @example 128
-             */
-            commitCount: number;
-            /** @description Tip commit of the ref. `null` when nothing has been pushed yet. */
-            commit: components["schemas"]["CommitSummaryDTO"] | null;
-            /** @description One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory. */
-            entries: components["schemas"]["TreeEntryDTO"][];
-        };
-        GetRepositoryPathsResponseDTO: {
-            /**
-             * @description Ref that was listed, always fully qualified.
-             * @example refs/heads/main
-             */
-            ref: string;
-            /**
-             * @description Every file at the ref, from the repository root, in byte order. Submodules are left out. Empty for an unborn ref.
-             * @example [
-             *       "README.md",
-             *       "src/main.ts"
-             *     ]
-             */
-            paths: string[];
-        };
-        GetRepositoryReadmeResponseDTO: {
-            /**
-             * @description Ref that was read, always fully qualified.
-             * @example refs/heads/main
-             */
-            ref: string;
-            /**
-             * @description Path of the README that was found, `null` when the repository has none.
-             * @example README.md
-             */
-            path: string | null;
-            /** @description README size in bytes, 0 when there is none. */
-            size: number;
-            /** @description Markdown source. `null` when there is no README, when it is past the inline size limit, or when it is not valid UTF-8 text. */
-            content: string | null;
-        };
-        /**
-         * @description `base64` for binary files, and for anything that is not valid UTF-8.
-         * @enum {string}
-         */
-        BlobEncoding: "utf-8" | "base64";
-        /**
-         * @description Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file.
-         * @enum {string}
-         */
-        BlobLfs: "stored" | "missing";
-        GetRepositoryBlobResponseDTO: {
-            /**
-             * @description Ref that was read, always fully qualified.
-             * @example refs/heads/main
-             */
-            ref: string;
-            /**
-             * @description Normalized path of the file.
-             * @example src/main.ts
-             */
-            path: string;
-            /** @description Object id of the blob. */
-            oid: string;
-            /** @description File size in bytes. */
-            size: number;
-            /** @description `base64` for binary files, and for anything that is not valid UTF-8. */
-            encoding: components["schemas"]["BlobEncoding"];
-            /** @description File contents, `null` when the file is past the inline size limit. */
-            content: string | null;
-            /** @description Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file. */
-            lfs: components["schemas"]["BlobLfs"] | null;
-            /** @description Newest commit touching this file. */
-            commit: components["schemas"]["CommitSummaryDTO"] | null;
-        };
-        CommitVerificationDTO: {
-            /** @description True only when the signature checks out *and* the signing key belongs to an account that has verified the commit's author address. */
-            verified: boolean;
-            /** @description Why it reads the way it does, for a tooltip. */
-            reason: string;
-            /** @description Long key id the signature names, lowercase hex. */
-            keyId: string;
-            /**
-             * @description GitHub's word for the verdict.
-             * @enum {string}
-             */
-            state: "valid" | "unknown_key" | "bad_email" | "invalid";
-            /** @description The account whose key verified the signature; `null` for a platform key and whenever `verified` is false. */
-            signerId: string | null;
-        };
         CommitStatusCreatorDTO: {
             username: string;
             image: string | null;
@@ -5523,6 +5384,147 @@ export interface components {
             statuses: components["schemas"]["CommitStatusDTO"][];
             /** @description The newest check run of each app and name. */
             checkRuns: components["schemas"]["CheckRunDTO"][];
+        };
+        /**
+         * @description `tree` is a directory, `commit` a submodule.
+         * @enum {string}
+         */
+        TreeEntryType: "blob" | "tree" | "commit";
+        SubmoduleDTO: {
+            /**
+             * @description Repository URL as `.gitmodules` declares it, relative URLs left as written.
+             * @example ../lib.git
+             */
+            url: string;
+            /**
+             * @description Page showing the submodule: the repository on this instance or its tree on a known host such as GitHub, GitLab or Codeberg, both at the pinned commit (`oid`), or else the repository page on its host, always over http(s). `null` for a URL that names no host or no repository, such as a local path.
+             * @example https://ghost.example.com/octo/lib/tree/3f786850e387550fdab836ed7e6dc881de23001b
+             */
+            href: string | null;
+        };
+        TreeEntryDTO: {
+            /** @description Entry name within the listed directory. */
+            name: string;
+            /** @description Full path from the repository root. */
+            path: string;
+            /** @description `tree` is a directory, `commit` a submodule. */
+            type: components["schemas"]["TreeEntryType"];
+            /**
+             * @description Git file mode, e.g. `100644`.
+             * @example 100644
+             */
+            mode: string;
+            /** @description Object id of the blob or tree, or the commit a submodule is pinned to. */
+            oid: string;
+            /** @description Blob size in bytes; `null` for trees and submodules. */
+            size: number | null;
+            /** @description Newest commit touching this entry, or anything beneath it for a tree. `null` only if the index has not caught up with the ref. */
+            lastCommit: components["schemas"]["CommitSummaryDTO"] | null;
+            /** @description Where a submodule comes from. `null` for anything else, and for a submodule `.gitmodules` gives no URL. */
+            submodule: components["schemas"]["SubmoduleDTO"] | null;
+        };
+        GetRepositoryContentsResponseDTO: {
+            /**
+             * @description Ref that was listed, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Normalized directory that was listed, with a trailing slash. Empty at the root.
+             * @example src/services/
+             */
+            path: string;
+            /**
+             * @description Commits reachable from the ref. `0` for an unborn ref.
+             * @example 128
+             */
+            commitCount: number;
+            /** @description Tip commit of the ref. `null` when nothing has been pushed yet. */
+            commit: components["schemas"]["CommitSummaryDTO"] | null;
+            /** @description Statuses and check runs of the tip commit, or `null` when it has neither or nothing has been pushed yet. */
+            checks: components["schemas"]["CommitChecksDTO"] | null;
+            /** @description One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory. */
+            entries: components["schemas"]["TreeEntryDTO"][];
+        };
+        GetRepositoryPathsResponseDTO: {
+            /**
+             * @description Ref that was listed, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Every file at the ref, from the repository root, in byte order. Submodules are left out. Empty for an unborn ref.
+             * @example [
+             *       "README.md",
+             *       "src/main.ts"
+             *     ]
+             */
+            paths: string[];
+        };
+        GetRepositoryReadmeResponseDTO: {
+            /**
+             * @description Ref that was read, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Path of the README that was found, `null` when the repository has none.
+             * @example README.md
+             */
+            path: string | null;
+            /** @description README size in bytes, 0 when there is none. */
+            size: number;
+            /** @description Markdown source. `null` when there is no README, when it is past the inline size limit, or when it is not valid UTF-8 text. */
+            content: string | null;
+        };
+        /**
+         * @description `base64` for binary files, and for anything that is not valid UTF-8.
+         * @enum {string}
+         */
+        BlobEncoding: "utf-8" | "base64";
+        /**
+         * @description Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file.
+         * @enum {string}
+         */
+        BlobLfs: "stored" | "missing";
+        GetRepositoryBlobResponseDTO: {
+            /**
+             * @description Ref that was read, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Normalized path of the file.
+             * @example src/main.ts
+             */
+            path: string;
+            /** @description Object id of the blob. */
+            oid: string;
+            /** @description File size in bytes. */
+            size: number;
+            /** @description `base64` for binary files, and for anything that is not valid UTF-8. */
+            encoding: components["schemas"]["BlobEncoding"];
+            /** @description File contents, `null` when the file is past the inline size limit. */
+            content: string | null;
+            /** @description Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file. */
+            lfs: components["schemas"]["BlobLfs"] | null;
+            /** @description Newest commit touching this file. */
+            commit: components["schemas"]["CommitSummaryDTO"] | null;
+        };
+        CommitVerificationDTO: {
+            /** @description True only when the signature checks out *and* the signing key belongs to an account that has verified the commit's author address. */
+            verified: boolean;
+            /** @description Why it reads the way it does, for a tooltip. */
+            reason: string;
+            /** @description Long key id the signature names, lowercase hex. */
+            keyId: string;
+            /**
+             * @description GitHub's word for the verdict.
+             * @enum {string}
+             */
+            state: "valid" | "unknown_key" | "bad_email" | "invalid";
+            /** @description The account whose key verified the signature; `null` for a platform key and whenever `verified` is false. */
+            signerId: string | null;
         };
         CommitDTO: {
             /** @description Full 40-character commit sha. */

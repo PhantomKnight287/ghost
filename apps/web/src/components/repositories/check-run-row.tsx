@@ -1,13 +1,7 @@
 "use client";
 
 import { cn } from "cn";
-import {
-  CircleCheck,
-  CircleDashed,
-  CircleSlash,
-  CircleX,
-  Loader,
-} from "lucide-react";
+import { Check, CircleSlash, Dot, Loader, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
@@ -43,7 +37,8 @@ export function CheckRunIcon({
   const icon = cn("size-4 shrink-0", className);
   if (run.status === "queued")
     return (
-      <CircleDashed
+      <Dot
+        strokeWidth={10}
         aria-label="Queued"
         className={cn(icon, "text-amber-500")}
       />
@@ -60,10 +55,7 @@ export function CheckRunIcon({
     );
   if (run.conclusion === "success")
     return (
-      <CircleCheck
-        aria-label="Passed"
-        className={cn(icon, "text-emerald-500")}
-      />
+      <Check aria-label="Passed" className={cn(icon, "text-emerald-500")} />
     );
   if (run.conclusion === "neutral" || run.conclusion === "skipped")
     return (
@@ -73,7 +65,7 @@ export function CheckRunIcon({
       />
     );
   return (
-    <CircleX
+    <X
       aria-label={run.conclusion?.replace("_", " ") ?? "Failed"}
       className={cn(icon, "text-red-500")}
     />

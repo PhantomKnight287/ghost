@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+import { CommitChecksDTO } from '../../checks/dto/check.dto.js';
 import {
   isSafeTreePath,
   MAX_TREE_PATH_LENGTH,
@@ -187,6 +188,17 @@ export class GetRepositoryContentsResponseDTO {
   @Type(() => CommitSummaryDTO)
   @IsOptional()
   commit: CommitSummaryDTO | null;
+
+  @ApiProperty({
+    type: CommitChecksDTO,
+    nullable: true,
+    description:
+      'Statuses and check runs of the tip commit, or `null` when it has neither or nothing has been pushed yet.',
+  })
+  @ValidateNested()
+  @Type(() => CommitChecksDTO)
+  @IsOptional()
+  checks: CommitChecksDTO | null;
 
   @ApiProperty({
     type: [TreeEntryDTO],
