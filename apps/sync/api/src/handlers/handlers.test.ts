@@ -39,6 +39,7 @@ describe("Ghost events", () => {
     ["check_suite.requested", ghost("check_suite.requested", { checkSuite: { headSha: "h1" } }), g({ kind: "sync_check", sha: "h1" })],
     ["check_run.rerequested", ghost("check_run.rerequested", { checkRun: { numericId: 77 } }), g({ kind: "reconcile" })],
     ["check_suite.rerequested", ghost("check_suite.rerequested", { checkSuite: { headSha: "h1" } }), g({ kind: "reconcile" })],
+    ["commit_status.created", ghost("commit_status.created", { status: { id: "s-uuid", sha: "h1", context: "ci", state: "success" } }), g({ kind: "status", from: "ghost", sha: "h1" })],
   ];
   test.each(cases)("%s", (_, payload, expected) => {
     expect(handleGhost(String(payload.event), payload)).toEqual(expected as never);
@@ -84,6 +85,7 @@ describe("GitHub events", () => {
     ["label edited", "label", github("edited", { label: { name: "bug" } }), h({ kind: "label", from: "github", name: "bug", deleted: false })],
     ["label deleted", "label", github("deleted", { label: { name: "bug" } }), h({ kind: "label", from: "github", name: "bug", deleted: true })],
     ["check_run completed", "check_run", github("completed", { check_run: { id: 1001 } }), h({ kind: "check_run", from: "github", id: "1001" })],
+    ["status", "status", github(undefined, { sha: "h1", context: "Vercel", state: "success" }), h({ kind: "status", from: "github", sha: "h1" })],
   ];
   test.each(cases)("%s", (_, event, payload, expected) => {
     expect(handleGitHub(event, payload)).toEqual(expected as never);

@@ -6,6 +6,7 @@ import { deleteIssue, deleteLabelDefinition, syncIssue, syncLabelDefinition } fr
 import { syncPull } from "./pulls.ts";
 import { syncRefs } from "./refs.ts";
 import { deleteReviewComment, syncReview, syncReviewComment } from "./reviews.ts";
+import { syncStatuses } from "./statuses.ts";
 
 /** Opens "Sync with GitHub" on a Ghost commit, syncs every ref, and fails the check when a ref at that commit could not be synced. */
 async function runSyncCheck(ctx: SyncContext, sha: string) {
@@ -46,6 +47,9 @@ export async function runAction(ctx: SyncContext, action: SyncAction, reconcile:
       return;
     case "check_run":
       await syncCheckRun(ctx, action.from, action.id);
+      return;
+    case "status":
+      await syncStatuses(ctx, action.from, action.sha);
       return;
     case "sync_check":
       await runSyncCheck(ctx, action.sha);

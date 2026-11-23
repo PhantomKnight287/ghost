@@ -18,6 +18,7 @@ type GitHubPayload = {
   label?: { name: string };
   changes?: { name?: { from: string } };
   check_run?: { id: number };
+  sha?: string;
 };
 
 const PULL_ACTIONS = new Set(["opened", "edited", "closed", "reopened", "synchronize", "ready_for_review", "converted_to_draft", "labeled", "unlabeled"]);
@@ -55,6 +56,8 @@ function actionOf(event: string, body: GitHubPayload): SyncAction | null {
     }
     case "check_run":
       return body.check_run && (verb === "created" || verb === "completed") ? { kind: "check_run", from: "github", id: String(body.check_run.id) } : null;
+    case "status":
+      return body.sha ? { kind: "status", from: "github", sha: body.sha } : null;
     default:
       return null;
   }

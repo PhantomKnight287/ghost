@@ -40,6 +40,7 @@ type ReviewComment = {
   commitId: string;
   inReplyTo: number | null;
 };
+type Status = { id: number; uuid: string; sha: string; context: string; state: string; description: string | null; targetUrl: string | null; creator: string };
 type CheckRun = { id: number; uuid: string; name: string; headSha: string; status: string; conclusion: string | null; output: { title: string | null; summary: string | null; text?: string | null }; detailsUrl: string | null; app: string };
 export type Repo = {
   id: number;
@@ -58,6 +59,7 @@ export type Repo = {
   reviews: Review[];
   reviewComments: ReviewComment[];
   checkRuns: CheckRun[];
+  statuses: Status[];
 };
 type Actor = { kind: "user"; login: string } | { kind: "installation"; id: number } | { kind: "app" };
 
@@ -448,6 +450,22 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     return c.body(null, 204);
   });
 
+  const hasCommit = (repo: Repo, commit: string) => tryGit(repo.bare, "cat-file", "-e", `${commit}^{commit}`) !== null;
+  const statusJson = (status: Status) => ({ id: status.id, context: status.context, state: status.state, description: status.description, target_url: status.targetUrl, creator: { login: status.creator } });
+  // Statuses are append-only; both hosts list a commit's newest first.
+  api.get("/repos/:owner/:name/commits/:sha/statuses", (c) => {
+    const repo = c.get("repo");
+    if (!hasCommit(repo, c.req.param("sha"))) return ghost ? notFound(c) : c.json({ message: `No commit found for SHA: ${c.req.param("sha")}` }, 422);
+    return c.json(repo.statuses.filter((status) => status.sha === c.req.param("sha")).reverse().map(statusJson));
+  });
+  api.post("/repos/:owner/:name/statuses/:sha", async (c) => {
+    const repo = c.get("repo");
+    if (!hasCommit(repo, c.req.param("sha"))) return c.json({ message: `No commit found for SHA: ${c.req.param("sha")}` }, 422);
+    const request = await c.req.json<{ state: string; context?: string; description?: string; target_url?: string }>();
+    const status = addStatus(repo, { sha: c.req.param("sha"), context: request.context ?? "default", state: request.state, description: request.description ?? null, targetUrl: request.target_url ?? null, creator: loginOf(c.get("actor")) });
+    return c.json(statusJson(status), 201);
+  });
+
   api.get("/repos/:owner/:name/check-runs/:id{[0-9]+}", (c) => {
     const repo = c.get("repo");
     const run = repo.checkRuns.find((each) => each.id === Number(c.req.param("id")));
@@ -560,6 +578,14 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     });
   }
 
+  function addStatus(repo: Repo, fields: Omit<Status, "id" | "uuid">) {
+    const status: Status = { id: ++ids, uuid: crypto.randomUUID(), ...fields };
+    repo.statuses.push(status);
+    const body = { sha: status.sha, context: status.context, state: status.state, description: status.description, target_url: status.targetUrl };
+    emit(repo, status.creator, "commit_status.created", "status", { ghost: { status: { id: status.uuid, ...body } }, github: body });
+    return status;
+  }
+
   function emitCheckRun(repo: Repo, run: CheckRun, verb: "created" | "completed", actor: string) {
     emit(repo, actor, `check_run.${verb}`, "check_run", {
       ghost: { checkRun: { id: run.uuid, numericId: run.id, app: { slug: run.app } } },
@@ -590,6 +616,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       reviews: [],
       reviewComments: [],
       checkRuns: [],
+      statuses: [],
     };
     repos.set(fullName, repo);
     return repo;
@@ -669,6 +696,10 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       emit(repo, by, "push", "push", { ghost: { ref: `refs/heads/${item.pull.base}`, before, after: head }, github: { ref: `refs/heads/${item.pull.base}`, before, after: head } });
     },
     /** A person runs a CI app's check on `sha`. */
+    /** A status reported by `creator`, such as a deploy service, as if it called the API. */
+    addStatus(fullName: string, status: { sha: string; context: string; state: string; description?: string; targetUrl?: string; creator: string }) {
+      return addStatus(repoOf(fullName), { description: null, targetUrl: null, ...status });
+    },
     addCheckRun(fullName: string, run: { name: string; headSha: string; status: string; conclusion: string | null; app: string }) {
       const repo = repoOf(fullName);
       const created: CheckRun = { id: ++ids, uuid: crypto.randomUUID(), output: { title: "CI", summary: `${run.name} ${run.conclusion ?? run.status}` }, detailsUrl: null, ...run };

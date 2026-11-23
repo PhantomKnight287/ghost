@@ -15,6 +15,7 @@ type GhostPayload = {
   label?: { name: string };
   checkRun?: { numericId: number };
   checkSuite?: { headSha: string };
+  status?: { sha: string };
 };
 
 const PULL_EVENTS = new Set(["opened", "edited", "closed", "merged", "reopened", "ready_for_review", "converted_to_draft", "synchronized"]);
@@ -50,6 +51,8 @@ function actionOf(event: string, body: GhostPayload): SyncAction | null {
     case "check_suite":
       if (verb === "rerequested") return { kind: "reconcile" };
       return verb === "requested" && body.checkSuite ? { kind: "sync_check", sha: body.checkSuite.headSha } : null;
+    case "commit_status":
+      return verb === "created" && body.status ? { kind: "status", from: "ghost", sha: body.status.sha } : null;
     default:
       return null;
   }

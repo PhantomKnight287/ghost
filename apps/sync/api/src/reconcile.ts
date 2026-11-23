@@ -3,6 +3,7 @@ import { type Rest, RestError } from "./rest.ts";
 import { SIDE_NAME, type Side } from "./side.ts";
 import type { Store, SyncRow } from "./store.ts";
 import { syncCheckRun } from "./sync/checks.ts";
+import { syncStatuses } from "./sync/statuses.ts";
 import { type Comment, syncComment } from "./sync/comments.ts";
 import { repoPath, type SyncContext } from "./sync/context.ts";
 import { ghostKeyOfNodeId, syncIssue } from "./sync/issues.ts";
@@ -50,7 +51,7 @@ function tagged(side: Side, rest: Rest): Rest {
   };
 }
 
-/** One issue or pull request and everything hanging off it: comments, and for a pull request its reviews, line comments and, while open, the check runs on its head. */
+/** One issue or pull request and everything hanging off it: comments, and for a pull request its reviews, line comments and, while open, the check runs and commit statuses on its head. */
 async function reconcileItem(ctx: SyncContext, side: Side, item: Listed) {
   const base = repoPath(ctx, side);
   if (item.pull_request) await syncPull(ctx, side, item.number);
@@ -71,12 +72,13 @@ async function reconcileItem(ctx: SyncContext, side: Side, item: Listed) {
   }
   if (item.state !== "open") return;
 
-  // Runs on the default branch arrive by webhook; an open pull request's head is where reviews wait on checks.
+  // Runs and statuses on the default branch arrive by webhook; an open pull request's head is where reviews wait on checks.
   const { head } = await ctx.rest[side].request<PullHead>("GET", `${base}/pulls/${item.number}`);
   for (const runSide of SIDES) {
     for (const run of await all(ctx.rest[runSide].paginate<{ id: number }>(`${repoPath(ctx, runSide)}/commits/${head.sha}/check-runs`))) {
       await syncCheckRun(ctx, runSide, String(run.id));
     }
+    await syncStatuses(ctx, runSide, head.sha);
   }
 }
 

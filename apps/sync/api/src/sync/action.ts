@@ -11,5 +11,7 @@ export type SyncAction =
   /** `previousName` when the label was renamed; GitHub reports it, Ghost does not. */
   | { kind: "label"; from: Side; name: string; deleted: boolean; previousName?: string }
   | { kind: "check_run"; from: Side; id: string }
+  /** Every context's newest status on `sha` is copied at once, so repeated status events on one commit collapse into one waiting job. */
+  | { kind: "status"; from: Side; sha: string }
   | { kind: "sync_check"; sha: string }
   | { kind: "reconcile" };

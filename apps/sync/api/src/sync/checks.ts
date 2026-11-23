@@ -19,7 +19,7 @@ export const SYNC_CHECK_NAME = "Sync with GitHub";
 /** The statuses any app may set; GitHub reserves the others (`waiting`, `pending`, `requested`) for Actions. */
 const SETTABLE = ["queued", "in_progress", "completed"];
 
-async function commitExists(ctx: SyncContext, side: Side, sha: string) {
+export async function commitExists(ctx: SyncContext, side: Side, sha: string) {
   try {
     await ctx.rest[side].request("GET", `${repoPath(ctx, side)}/commits/${sha}`);
     return true;

@@ -41,6 +41,29 @@ describe.skipIf(!databaseUrl)("checks and the sync's lifecycle", () => {
     });
   });
 
+  describe("commit statuses", () => {
+    const deploy = { context: "Ghost - api", description: "Deploying", targetUrl: "https://railway.example.com/deploy/1", creator: "railway-app[bot]" };
+    const view = (repo: Repo, context: string) => repo.statuses.filter((each) => each.context === context).map(({ state, description, targetUrl, creator }) => ({ state, description, targetUrl, creator }));
+
+    test("a deploy status on GitHub is copied onto the Ghost commit, its update follows, and the copy never echoes back", async () => {
+      world.github.addStatus("acme-gh/app", { sha: main, state: "pending", ...deploy });
+      await world.settle();
+      world.github.addStatus("acme-gh/app", { sha: main, state: "success", ...deploy, description: "Success - api.example.com" });
+      await world.settle();
+      expect(view(ghostRepo, "Ghost - api")).toEqual([
+        { state: "pending", description: "Deploying", targetUrl: deploy.targetUrl, creator: `${SLUGS.ghost}[bot]` },
+        { state: "success", description: "Success - api.example.com", targetUrl: deploy.targetUrl, creator: `${SLUGS.ghost}[bot]` },
+      ]);
+      expect(view(githubRepo, "Ghost - api").map((each) => each.creator)).toEqual(["railway-app[bot]", "railway-app[bot]"]);
+    });
+
+    test("a status on Ghost reaches GitHub", async () => {
+      world.ghost.addStatus("acme/app", { sha: main, context: "ghost-ci", state: "failure", creator: "ci[bot]" });
+      await world.settle();
+      expect(view(githubRepo, "ghost-ci")).toEqual([{ state: "failure", description: null, targetUrl: null, creator: `${SLUGS.github}[bot]` }]);
+    });
+  });
+
   describe("lifecycle", () => {
     test("a paused sync drops webhooks, and resuming catches up on what it missed", async () => {
       expect((await world.call("POST", `/api/syncs/${syncId}/pause`)).status).toBe(200);
