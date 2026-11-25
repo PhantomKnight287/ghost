@@ -97,7 +97,7 @@ REST at `/api/v3`:
 - `GET /repos/:owner/:repo/codeowners/errors?ref=…`, the problems in the repository's CODEOWNERS file, 404 when it has none
 - `POST /user/repos`, `POST /orgs/:org/repos`. `auto_init` writes a README, and `gitignore_template` and `license_template` add a `.gitignore` and `LICENSE`, all in one `Initial commit` on the default branch. Template names match in any case, so `--gitignore go` and `--license MIT` work
 - `GET /gitignore/templates`, `GET /gitignore/templates/:name`, `GET /licenses`, `GET /licenses/:license`
-- `GET /search/issues?q=…`, issues and pull requests across every repository the token can read, with `sort` (`created`, `updated`, `comments`), `order`, `page` and `per_page`. `incomplete_results` is always false
+- `GET /search/issues?q=…`, issues and pull requests across every repository the token can read, with `sort` (`created`, `updated`, `comments`), `order`, `page` and `per_page`. `incomplete_results` is always false. App installation tokens are refused, as on the repository lists
 
 Issues, comments and labels, under `/api/v3/repos/:owner/:repo`:
 

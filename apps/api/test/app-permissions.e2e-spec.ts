@@ -67,6 +67,7 @@ const DENIED_TO_INSTALLATIONS = [
   'PUT v3/repos/:owner/:repo/rulesets/:id',
   'DELETE v3/repos/:owner/:repo/rulesets/:id',
   'POST uploads/user-attachments/assets',
+  'GET v3/search/issues',
 ];
 
 /** GraphQL root fields an installation token is refused on purpose. */
