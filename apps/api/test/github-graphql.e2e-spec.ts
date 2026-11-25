@@ -571,6 +571,19 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
       description: 'from gh',
     });
 
+    // A name with nothing to make a slug from would leave the repository without a URL.
+    for (const name of ['', '   ']) {
+      const refused = await graphql(
+        'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { name } } }',
+        { input: { repositoryId, name } },
+        owner.key,
+      ).expect(200);
+      expect(refused.body.errors[0]).toMatchObject({
+        type: 'UNPROCESSABLE',
+        message: expect.stringContaining('cannot be a repository name'),
+      });
+    }
+
     const anonymous = await graphql(
       'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { id } } }',
       { input: { repositoryId, description: 'x' } },

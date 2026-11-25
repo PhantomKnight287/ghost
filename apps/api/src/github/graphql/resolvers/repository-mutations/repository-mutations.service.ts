@@ -88,8 +88,7 @@ export class RepositoryMutationsService {
     );
     requireWriteScope(viewer, 'updateRepository', repository);
     const { id } = await this.repositories.updateRepository({
-      username: repository.ownerLogin,
-      slug: repository.slug,
+      repositoryId: repository.ghostId,
       requesterId: viewer.userId,
       changes: {
         name: input.name ?? undefined,

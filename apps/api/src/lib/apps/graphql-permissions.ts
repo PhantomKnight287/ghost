@@ -100,6 +100,7 @@ export const GRAPHQL_TYPE_PERMISSIONS: Record<string, Needs> = {
   UnresolveReviewThreadPayload: 'metadata',
   UpdateIssuePayload: 'metadata',
   UpdatePullRequestPayload: 'metadata',
+  UpdateRepositoryPayload: 'metadata',
   User: 'metadata',
   UserConnection: 'metadata',
   Workflow: 'checks',
