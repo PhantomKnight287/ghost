@@ -3,7 +3,11 @@ const TOKEN = /(-?[\w-]+):("[^"]*"|\S+)|("[^"]*"|\S+)/g;
 /** GitHub's issue search syntax, as far as Ghost's issue filters reach. Qualifiers Ghost cannot apply are dropped, as GitHub drops unknown ones. */
 export function parseIssueSearch(query: string) {
   const result = {
-    repo: null as { owner: string; name: string } | null,
+    /** Repeated `repo:`, `user:` and `org:` each widen the search, as GitHub's legacy syntax reads them. */
+    repos: [] as { owner: string; name: string }[],
+    /** `user:` and `org:` both name a repository owner. */
+    owners: [] as string[],
+    visibility: null as 'public' | 'private' | null,
     state: 'all' as 'open' | 'closed' | 'all',
     isPullRequest: null as boolean | null,
     /** `is:merged` true, `is:unmerged` false; either one means pull requests only. */
@@ -28,11 +32,17 @@ export function parseIssueSearch(query: string) {
     switch (key) {
       case 'repo': {
         const [owner, name] = value.split('/');
-        if (owner && name) result.repo = { owner, name };
+        if (owner && name) result.repos.push({ owner, name });
         break;
       }
+      case 'user':
+      case 'org':
+        result.owners.push(value);
+        break;
       case 'is':
         if (value === 'open' || value === 'closed') result.state = value;
+        if (value === 'public' || value === 'private')
+          result.visibility = value;
         if (value === 'issue') result.isPullRequest = false;
         if (value === 'pr') result.isPullRequest = true;
         if (value === 'merged' || value === 'unmerged') {

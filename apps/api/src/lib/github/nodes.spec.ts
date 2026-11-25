@@ -75,6 +75,7 @@ describe('toIssueNode', () => {
   } as never;
   const dto = {
     id: 'issue_1',
+    repositoryId: 'repository_1',
     number: 7,
     title: 'T',
     body: null,

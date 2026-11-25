@@ -293,6 +293,9 @@ export class RestPage<T> {
   ) {}
 }
 
+/** A page of search results, which GitHub answers inside `{ total_count, incomplete_results, items }` and pages with `Link` like every other list. */
+export class RestSearchPage<T> extends RestPage<T> {}
+
 function positiveInteger(value: unknown) {
   const number = typeof value === 'string' ? Number(value) : Number.NaN;
   return Number.isInteger(number) && number > 0 ? number : null;

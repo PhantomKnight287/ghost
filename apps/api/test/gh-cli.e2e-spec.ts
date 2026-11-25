@@ -993,6 +993,41 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     });
   });
 
+  it('searches issues across repositories', async () => {
+    const out = await ok([
+      'search',
+      'issues',
+      'typo',
+      '--owner',
+      username,
+      '--json',
+      'title,repository,isPullRequest',
+    ]);
+    expect(JSON.parse(out)).toEqual([
+      {
+        title: 'Docs typo',
+        repository: { name: 'tools', nameWithOwner: `${username}/tools` },
+        isPullRequest: false,
+      },
+    ]);
+  });
+
+  it('searches pull requests across repositories', async () => {
+    const found = JSON.parse(
+      await ok([
+        'search',
+        'prs',
+        '--owner',
+        username,
+        '--json',
+        'title,isPullRequest',
+      ]),
+    ) as { title: string; isPullRequest: boolean }[];
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.every((pull) => pull.isPullRequest)).toBe(true);
+    expect(found.map((pull) => pull.title)).toContain('Add a feature (edited)');
+  });
+
   it('creates a repository', async () => {
     const out = await ok([
       'repo',

@@ -17289,6 +17289,110 @@
         ]
       }
     },
+    "/api/v3/search/issues": {
+      "get": {
+        "operationId": "SearchIssuesController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "description": "GitHub issue search syntax: words, and qualifiers such as `repo:`, `user:`, `org:`, `is:pr`, `label:` and `author:`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "comments",
+                "reactions",
+                "reactions-+1",
+                "reactions--1",
+                "reactions-smile",
+                "reactions-thinking_face",
+                "reactions-heart",
+                "reactions-tada",
+                "interactions",
+                "created",
+                "updated"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubSearchIssuesDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Issues and pull requests across every repository the viewer can read",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/pulls/comments": {
       "get": {
         "operationId": "ReviewCommentsController_listForRepository",
@@ -29133,6 +29237,9 @@
           "id": {
             "type": "string"
           },
+          "repositoryId": {
+            "type": "string"
+          },
           "number": {
             "type": "number",
             "description": "Per repository, and what the URL carries."
@@ -29207,6 +29314,7 @@
         },
         "required": [
           "id",
+          "repositoryId",
           "number",
           "title",
           "body",
@@ -29274,6 +29382,9 @@
           "id": {
             "type": "string"
           },
+          "repositoryId": {
+            "type": "string"
+          },
           "number": {
             "type": "number",
             "description": "Per repository, and what the URL carries."
@@ -29348,6 +29459,7 @@
         },
         "required": [
           "id",
+          "repositoryId",
           "number",
           "title",
           "body",
@@ -33321,6 +33433,29 @@
         },
         "required": [
           "assignees"
+        ]
+      },
+      "GithubSearchIssuesDTO": {
+        "type": "object",
+        "properties": {
+          "total_count": {
+            "type": "number"
+          },
+          "incomplete_results": {
+            "type": "boolean",
+            "description": "Always false: Ghost never cuts a search short."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubIssueDTO"
+            }
+          }
+        },
+        "required": [
+          "total_count",
+          "incomplete_results",
+          "items"
         ]
       },
       "GithubLinkDTO": {

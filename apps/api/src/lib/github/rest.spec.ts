@@ -34,6 +34,7 @@ const context: RestContext = {
 
 const issue = {
   id: 'issue_1',
+  repositoryId: 'repository_1',
   number: 4,
   title: 'Crash',
   body: null,

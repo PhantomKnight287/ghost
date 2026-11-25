@@ -29,6 +29,10 @@ export class IssueDTO {
   @IsString()
   id: string;
 
+  @ApiProperty()
+  @IsString()
+  repositoryId: string;
+
   @ApiProperty({
     description: 'Per repository, and what the URL carries.',
   })

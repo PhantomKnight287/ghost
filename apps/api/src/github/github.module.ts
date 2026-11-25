@@ -36,7 +36,6 @@ import { ReleaseNodesService } from './graphql/resolvers/release/release-nodes.s
 import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
 import { RepositoryMutationsService } from './graphql/resolvers/repository-mutations/repository-mutations.service.js';
 import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
-import { GithubSearchService } from './graphql/resolvers/search/search.service.js';
 import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
 import { ViewerService } from './graphql/resolvers/viewer/viewer.service.js';
 import { OauthModule } from './oauth/oauth.module.js';
@@ -136,7 +135,6 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
     RepositoryReleasesResolver,
     ReleaseTagResolver,
     ViewerService,
-    GithubSearchService,
     IssueMutationsService,
     RepositoryMutationsService,
     PullRequestMutationsService,

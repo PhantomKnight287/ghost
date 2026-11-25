@@ -1,4 +1,4 @@
-import { schema } from '@ghost/db';
+import { type Database, schema } from '@ghost/db';
 import {
   atLeast,
   type OrganizationRole,
@@ -175,6 +175,31 @@ export function holdsOrganizationRole(
 /** Public, or granted to the actor; same joins as `grantedTo`. */
 export function readableBy(actor: Actor) {
   return or(eq(schema.repository.visibility, 'public'), grantedTo(actor));
+}
+
+/** Ids of the repositories the actor can read that `where` keeps, as a subquery; `where` may read the owning `user` and `organization`. */
+export function readableRepositoryIds(
+  db: Pick<Database, 'select'>,
+  actor: Actor,
+  where?: SQL,
+) {
+  return db
+    .select({ id: schema.repository.id })
+    .from(schema.repository)
+    .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+    .leftJoin(
+      schema.organization,
+      eq(schema.organization.id, schema.repository.organizationId),
+    )
+    .leftJoin(
+      schema.repositoryCollaborator,
+      acceptedCollaboration(schema.repository.id, actor),
+    )
+    .leftJoin(
+      schema.member,
+      organizationMembership(schema.repository.organizationId, actor),
+    )
+    .where(and(readableBy(actor), where));
 }
 
 export type Grants = {
