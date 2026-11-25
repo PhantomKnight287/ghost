@@ -1031,6 +1031,78 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     );
   });
 
+  it('edits a repository, ignoring the settings Ghost has no switch for', async () => {
+    await api
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'gh-edited', visibility: 'private' })
+      .expect(201);
+    const repo = `${GH_E2E_HOST}/${username}/gh-edited`;
+    await ok([
+      'repo',
+      'edit',
+      repo,
+      '--description',
+      'edited by gh',
+      '--homepage',
+      'https://example.com',
+      '--enable-issues=false',
+      '--enable-wiki=false',
+    ]);
+    await ok([
+      'repo',
+      'edit',
+      repo,
+      '--visibility',
+      'public',
+      '--accept-visibility-change-consequences',
+    ]);
+    const view = JSON.parse(
+      await ok(['repo', 'view', repo, '--json', 'description,visibility']),
+    );
+    expect(view).toEqual({ description: 'edited by gh', visibility: 'PUBLIC' });
+  });
+
+  it('renames a repository', async () => {
+    await api
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'gh-renamed-from', visibility: 'public' })
+      .expect(201);
+    await ok([
+      'repo',
+      'rename',
+      'gh-renamed-to',
+      '-R',
+      `${GH_E2E_HOST}/${username}/gh-renamed-from`,
+      '--yes',
+    ]);
+    const view = JSON.parse(
+      await ok([
+        'repo',
+        'view',
+        `${GH_E2E_HOST}/${username}/gh-renamed-to`,
+        '--json',
+        'name',
+      ]),
+    );
+    expect(view).toEqual({ name: 'gh-renamed-to' });
+  });
+
+  it('creates a repository with issues and the wiki off and a homepage', async () => {
+    const out = await ok([
+      'repo',
+      'create',
+      `${GH_E2E_HOST}/${username}/gh-bare`,
+      '--public',
+      '--disable-issues',
+      '--disable-wiki',
+      '--homepage',
+      'https://example.com',
+    ]);
+    expect(out).toContain(`${username}/gh-bare`);
+  });
+
   it('adds and lists SSH keys', async () => {
     // A fingerprint belongs to one account, so each run adds a fresh key.
     await promisify(execFile)('ssh-keygen', [

@@ -1,0 +1,67 @@
+[
+  {
+    "command": "gh repo edit <host>/<login>/gh-edited --description edited by gh --homepage https://example.com --enable-issues=false --enable-wiki=false",
+    "requests": [
+      {
+        "method": "PATCH",
+        "path": "/api/v3/repos/<login>/gh-edited",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "description": "edited by gh",
+          "has_issues": false,
+          "has_wiki": false,
+          "homepage": "https://example.com"
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh repo edit <host>/<login>/gh-edited --visibility public --accept-visibility-change-consequences",
+    "requests": [
+      {
+        "method": "PATCH",
+        "path": "/api/v3/repos/<login>/gh-edited",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "visibility": "public"
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh repo view <host>/<login>/gh-edited --json description,visibility",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryInfo($owner: String!, $name: String!) {\n\t\trepository(owner: $owner, name: $name) {description,visibility}\n\t}",
+          "variables": {
+            "name": "gh-edited",
+            "owner": "<login>"
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

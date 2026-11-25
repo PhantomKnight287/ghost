@@ -14,6 +14,7 @@ import type { GithubViewer } from '../../../auth/github-request.js';
 import { requireWriteScope } from '../../../auth/require-scopes.js';
 import { RepositoryVisibility } from '../../enums.js';
 import * as M from '../../types/mutations.type.js';
+import { IssueMutationsService } from '../issue-mutations/issue-mutations.service.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
 @Injectable()
@@ -22,6 +23,7 @@ export class RepositoryMutationsService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly repositories: RepositoriesService,
     private readonly repositoryNodes: RepositoryNodesService,
+    private readonly issueMutations: IssueMutationsService,
   ) {}
 
   async createRepository(
@@ -68,6 +70,34 @@ export class RepositoryMutationsService {
     return {
       clientMutationId: input.clientMutationId,
       repository: await this.repositoryNodes.load(created.id, viewer),
+    };
+  }
+
+  /** Only the name and description: Ghost keeps none of the other settings GitHub's input carries. */
+  async updateRepository(
+    input: M.UpdateRepositoryInput,
+    viewer: GithubViewer | null,
+  ) {
+    if (!viewer)
+      throw new GithubForbiddenError(
+        'You must be signed in to run UpdateRepository.',
+      );
+    const repository = await this.issueMutations.repositoryFor(
+      input.repositoryId,
+      viewer,
+    );
+    requireWriteScope(viewer, 'updateRepository', repository);
+    const { id } = await this.repositories.updateRepository({
+      repositoryId: repository.ghostId,
+      requesterId: viewer.userId,
+      changes: {
+        name: input.name ?? undefined,
+        description: input.description ?? undefined,
+      },
+    });
+    return {
+      clientMutationId: input.clientMutationId,
+      repository: await this.repositoryNodes.load(id, viewer),
     };
   }
 

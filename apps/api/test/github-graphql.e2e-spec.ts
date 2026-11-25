@@ -1,9 +1,10 @@
-import type { INestApplication } from '@nestjs/common';
 import { execFile, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+
+import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -523,6 +524,105 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
       nameWithOwner: `${username}/made-by-gh`,
       visibility: 'PRIVATE',
     });
+  });
+
+  it('renames and describes a repository through updateRepository, ignoring the settings Ghost has no switch for', async () => {
+    const created = await graphql(
+      'mutation($input: CreateRepositoryInput!) { createRepository(input: $input) { repository { id } } }',
+      { input: { name: 'to-update', visibility: 'PUBLIC' } },
+      owner.key,
+    ).expect(200);
+    const repositoryId = created.body.data.createRepository.repository.id;
+    const response = await graphql(
+      'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { clientMutationId repository { name nameWithOwner description } } }',
+      {
+        input: {
+          repositoryId,
+          name: 'updated',
+          description: 'from gh',
+          homepageUrl: 'https://example.com',
+          hasIssuesEnabled: false,
+          hasWikiEnabled: false,
+          hasProjectsEnabled: false,
+          template: false,
+          clientMutationId: 'm1',
+        },
+      },
+      owner.key,
+    ).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.updateRepository).toEqual({
+      clientMutationId: 'm1',
+      repository: {
+        name: 'updated',
+        nameWithOwner: `${username}/updated`,
+        description: 'from gh',
+      },
+    });
+
+    // Only the fields sent change.
+    const untouched = await graphql(
+      'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { name description } } }',
+      { input: { repositoryId, hasIssuesEnabled: false } },
+      owner.key,
+    ).expect(200);
+    expect(untouched.body.data.updateRepository.repository).toEqual({
+      name: 'updated',
+      description: 'from gh',
+    });
+
+    // A name with nothing to make a slug from would leave the repository without a URL.
+    for (const name of ['', '   ']) {
+      const refused = await graphql(
+        'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { name } } }',
+        { input: { repositoryId, name } },
+        owner.key,
+      ).expect(200);
+      expect(refused.body.errors[0]).toMatchObject({
+        type: 'UNPROCESSABLE',
+        message: expect.stringContaining('cannot be a repository name'),
+      });
+    }
+
+    const anonymous = await graphql(
+      'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { id } } }',
+      { input: { repositoryId, description: 'x' } },
+    ).expect(200);
+    expect(anonymous.body.errors[0].type).toBe('FORBIDDEN');
+    const byStranger = await graphql(
+      'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { id } } }',
+      { input: { repositoryId, description: 'x' } },
+      stranger.key,
+    ).expect(200);
+    expect(byStranger.body.errors[0].type).toBe('FORBIDDEN');
+    const wrongType = await graphql(
+      'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { id } } }',
+      {
+        input: {
+          repositoryId: (await graphql('{ viewer { id } }', {}, owner.key)).body
+            .data.viewer.id,
+          description: 'x',
+        },
+      },
+      owner.key,
+    ).expect(200);
+    expect(wrongType.body.errors[0].type).toBe('NOT_FOUND');
+    const secret = await graphql(
+      'query($o: String!) { repository(owner: $o, name: "secret-repo") { id } }',
+      { o: username },
+      owner.key,
+    ).expect(200);
+    const unseen = await graphql(
+      'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { id } } }',
+      {
+        input: {
+          repositoryId: secret.body.data.repository.id,
+          description: 'x',
+        },
+      },
+      stranger.key,
+    ).expect(200);
+    expect(unseen.body.errors[0].type).toBe('NOT_FOUND');
   });
 
   it('serves GraphiQL to a browser and accepts the session cookie there', async () => {

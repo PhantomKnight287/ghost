@@ -18,4 +18,12 @@ export class RepositoryMutationsResolver {
   ) {
     return this.mutations.createRepository(input, viewer);
   }
+
+  @Mutation(() => M.UpdateRepositoryPayload, { nullable: true })
+  updateRepository(
+    @Args('input') input: M.UpdateRepositoryInput,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.mutations.updateRepository(input, viewer);
+  }
 }

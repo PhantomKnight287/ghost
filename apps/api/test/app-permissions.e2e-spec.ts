@@ -70,7 +70,10 @@ const DENIED_TO_INSTALLATIONS = [
 ];
 
 /** GraphQL root fields an installation token is refused on purpose. */
-const GRAPHQL_DENIED_TO_INSTALLATIONS = ['Mutation.createRepository'];
+const GRAPHQL_DENIED_TO_INSTALLATIONS = [
+  'Mutation.createRepository',
+  'Mutation.updateRepository',
+];
 
 const join = (...parts: string[]) =>
   parts

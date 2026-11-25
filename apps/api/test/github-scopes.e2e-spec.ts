@@ -157,4 +157,38 @@ describe.skipIf(!hasBackends)('GitHub scopes', () => {
       ),
     });
   });
+  it('updates a repository through updateRepository with public_repo only while it is public', async () => {
+    const update = async (name: string, scopes: string[]) => {
+      const repo = await graphql(
+        'query($o: String!, $n: String!) { repository(owner: $o, name: $n) { id } }',
+        { o: username, n: name },
+        owner.key,
+      ).expect(200);
+      return graphql(
+        'mutation($input: UpdateRepositoryInput!) { updateRepository(input: $input) { repository { description } } }',
+        {
+          input: {
+            repositoryId: repo.body.data.repository.id,
+            description: 'scoped',
+          },
+        },
+        await scopedKey(app, owner.userId, scopes),
+      ).expect(200);
+    };
+    const allowed = await update('public-repo', ['public_repo']);
+    expect(allowed.body.data.updateRepository.repository).toEqual({
+      description: 'scoped',
+    });
+    const refused = await update('public-repo', ['read:org']);
+    expect(refused.body.errors[0]).toMatchObject({
+      type: 'FORBIDDEN',
+      message: expect.stringContaining(
+        "The 'updateRepository' field requires one of the following scopes: ['repo', 'public_repo']",
+      ),
+    });
+    const secret = await update('secret-repo', ['repo']);
+    expect(secret.body.data.updateRepository.repository).toEqual({
+      description: 'scoped',
+    });
+  });
 });

@@ -61,6 +61,16 @@ export class RepositoryHeadsOpenPullRequestError extends DomainError {
   }
 }
 
+export class InvalidRepositoryNameError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(name: string) {
+    super(
+      `'${name}' cannot be a repository name: it leaves nothing to make the repository's URL from`,
+    );
+  }
+}
+
 export class InvalidRepositoryPathError extends DomainError {
   status: number = HttpStatus.BAD_REQUEST;
 

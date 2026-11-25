@@ -565,6 +565,7 @@ type Mutation {
   unresolveReviewThread(input: UnresolveReviewThreadInput!): UnresolveReviewThreadPayload
   updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
+  updateRepository(input: UpdateRepositoryInput!): UpdateRepositoryPayload
 }
 
 interface Node {
@@ -1311,6 +1312,25 @@ input UpdatePullRequestInput {
 type UpdatePullRequestPayload {
   clientMutationId: String
   pullRequest: PullRequest
+}
+
+input UpdateRepositoryInput {
+  clientMutationId: String
+  description: String
+  hasDiscussionsEnabled: Boolean
+  hasIssuesEnabled: Boolean
+  hasProjectsEnabled: Boolean
+  hasSponsorshipsEnabled: Boolean
+  hasWikiEnabled: Boolean
+  homepageUrl: URI
+  name: String
+  repositoryId: ID!
+  template: Boolean
+}
+
+type UpdateRepositoryPayload {
+  clientMutationId: String
+  repository: Repository
 }
 
 type User implements Actor & Node & RepositoryOwner & UniformResourceLocatable {

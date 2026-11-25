@@ -108,6 +108,7 @@ import {
   BranchNotFoundError,
   CannotForkOwnRepositoryError,
   CommitNotFoundError,
+  InvalidRepositoryNameError,
   RepositoryAlreadyForkedError,
   RepositoryHeadsOpenPullRequestError,
   RepositoryNameTakenError,
@@ -1090,23 +1091,28 @@ export class RepositoriesService {
     return organization?.slug ?? '';
   }
 
+  /** By id when the caller resolved the repository already, so a rename in between cannot point an owner and slug at another repository. */
   async updateRepository({
-    username,
-    slug,
     requesterId,
     changes: { name, description, visibility, defaultBranch },
-  }: {
-    username: string;
-    slug: string;
+    ...target
+  }: ({ username: string; slug: string } | { repositoryId: string }) & {
     requesterId: string;
     changes: UpdateRepositoryRequestDTO;
   }) {
-    const repository = await this.access.authorize({
-      operation: 'maintain',
-      username,
-      repo: slug,
-      requesterId,
-    });
+    const repository =
+      'repositoryId' in target
+        ? await this.access.authorizeById({
+            operation: 'maintain',
+            repositoryId: target.repositoryId,
+            requesterId,
+          })
+        : await this.access.authorize({
+            operation: 'maintain',
+            username: target.username,
+            repo: target.slug,
+            requesterId,
+          });
     // Visibility decides who can see the code at all, which is an admin's call.
     if (
       visibility !== undefined &&
@@ -1273,6 +1279,7 @@ export class RepositoriesService {
   /** `ownId` is the repository being renamed, which may keep its own slug. */
   private async freeSlug(namespace: Namespace, name: string, ownId?: string) {
     const { slugified, slugifiedWithSuffix } = titleToSlug(name);
+    if (!slugified) throw new InvalidRepositoryNameError(name);
     if (RESERVED_REPOSITORY_SLUGS.has(slugified)) return slugifiedWithSuffix;
     const [taken] = await this.db
       .select({ id: schema.repository.id })
