@@ -91,6 +91,11 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
 
   const nodeId = (prefix: string, entity: { id?: number; number?: number; uuid: string }) => (ghost ? `${prefix}_${b64(entity.uuid)}` : `${prefix}_${entity.id ?? entity.number}`);
   const loginOf = (actor: Actor) => (actor.kind === "user" ? actor.login : bot);
+  const userIds = new Map<string, number>();
+  const userIdOf = (login: string) => {
+    if (!userIds.has(login)) userIds.set(login, 500 + userIds.size);
+    return userIds.get(login) as number;
+  };
   const sha = (repo: Repo, ref: string) => tryGit(repo.bare, "rev-parse", "--verify", "--quiet", ref);
 
   // Webhooks, queued until the test delivers them, as a real host sends them shortly after the write.
@@ -142,7 +147,7 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
     title: item.title,
     body: item.body,
     state: item.state,
-    user: { login: item.author },
+    user: { login: item.author, id: userIdOf(item.author) },
     labels: item.labels.map((name) => labelJson(repo, name)),
     updated_at: item.updatedAt.toISOString(),
     ...(item.pull ? { pull_request: { url: `${origin}/${repo.fullName}/pull/${item.number}` } } : {}),
@@ -655,6 +660,8 @@ export function createFakeHost(opts: { side: Side; origin: string; root: string;
       const path = ghost ? url.pathname.replace(/^\/api\/v3/, "").replace(/^\/api\/graphql$/, "/graphql") : url.pathname;
       return api.fetch(new Request(`http://host${path}${url.search}`, request));
     },
+    /** The numeric account id this host answers for `login`, which Ghost Sync stores when the person links this side. */
+    userId: userIdOf,
     /** A user token for `login`, as a signed-in person's would be. */
     userToken(login: string) {
       const token = `ghu_${login}`;

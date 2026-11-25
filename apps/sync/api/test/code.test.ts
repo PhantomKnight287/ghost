@@ -147,6 +147,27 @@ describe.skipIf(!databaseUrl)("branches and pull requests", () => {
       expect(githubRepo.comments.filter((comment) => comment.number === original.number).map((comment) => comment.body)).toEqual(["Merged on Ghost"]);
     });
 
+    async function openOnGhost(author: string) {
+      world.ghost.push("acme/app", "feature", "add it", { from: main, author });
+      await world.settle();
+      await world.ghost.as(author).request("POST", "/repos/acme/app/pulls", { title: "Add it", body: "Adds it", head: "feature", base: "main" });
+      await world.settle();
+      return pullTitled(githubRepo, "Add it");
+    }
+
+    test("opened on Ghost by someone who linked GitHub: they open the copy, and it is not copied back", async () => {
+      await world.link("user-2", { ghost: "carol", github: "carol-gh" });
+      const copy = await openOnGhost("carol");
+      expect(copy).toMatchObject({ author: "carol-gh", body: withMarker("Adds it", "ghost", "carol") });
+      expect([...ghostRepo.items.values()].filter((item) => item.pull)).toHaveLength(1);
+      expect([...githubRepo.items.values()].filter((item) => item.pull)).toHaveLength(1);
+    });
+
+    test("opened on Ghost by someone who never linked GitHub: the app opens the copy", async () => {
+      const copy = await openOnGhost("erin");
+      expect(copy).toMatchObject({ author: BOTS.github, body: withMarker("Adds it", "ghost", "erin") });
+    });
+
     test("a Ghost fork's pull request is headed on GitHub by ghost-pr/<n>, which goes when it closes", async () => {
       const fork = world.ghost.openForkPull("acme/app", "erin", "From my fork", "main");
       await world.settle();

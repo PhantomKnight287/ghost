@@ -16,7 +16,7 @@ type Pull = {
   state: "open" | "closed";
   draft: boolean;
   merged: boolean;
-  user: { login: string };
+  user: { login: string; id?: number };
   labels?: Label[];
   head: Branch;
   base: Branch;
@@ -35,6 +35,9 @@ const pullFields = (pull: Pull) => ({
 
 /** Where a Ghost fork pull request's head lives on GitHub, since GitHub cannot see the fork. */
 const forkBranch = (number: number) => `ghost-pr/${number}`;
+
+/** Ghost Sync opened it: as the app, or as the person who wrote the original, in which case only the marker tells. */
+const writtenBySync = (ctx: SyncContext, side: Side, pull: Pull) => pull.user.login === ctx.bot[side] || readMarker(pull.body ?? "").from !== null;
 
 const isFork = (pull: Pull) => pull.head.repo === null || pull.head.repo.id !== pull.base.repo?.id;
 
@@ -75,7 +78,7 @@ export async function syncPull(ctx: SyncContext, from: Side, number: number) {
   }
 
   const link = await ctx.store.findLink(ctx.sync.id, "pull", from, String(number));
-  if (!link && source.user.login === ctx.bot[from]) return;
+  if (!link && writtenBySync(ctx, from, source)) return;
   const fork = isFork(source);
   if (fork && from === "github") {
     await ctx.store.addActivity({ syncId: ctx.sync.id, direction: "ghost", kind: "pull", summary: `GitHub pull request #${number} comes from a fork; forks on GitHub are not synced`, error: null });
@@ -149,7 +152,7 @@ async function findTwinPull(ctx: SyncContext, side: Side, source: Pull) {
   }
   const candidates = [];
   for (const pull of listed) {
-    if (pull.user.login === ctx.bot[side] || pull.base.ref !== source.base.ref) continue;
+    if (writtenBySync(ctx, side, pull) || pull.base.ref !== source.base.ref) continue;
     if (!(await ctx.store.findLink(ctx.sync.id, "pull", side, String(pull.number)))) candidates.push(pull);
   }
   const titled = candidates.length > 1 ? candidates.filter((pull) => pull.title === source.title) : candidates;
@@ -163,7 +166,7 @@ async function findTwinPull(ctx: SyncContext, side: Side, source: Pull) {
     if (!isNotFound(error)) throw error;
     return undefined;
   }
-  const stillTwin = current.user.login !== ctx.bot[side] && current.head.ref === source.head.ref && current.base.ref === source.base.ref && (candidates.length === 1 || current.title === source.title);
+  const stillTwin = !writtenBySync(ctx, side, current) && current.head.ref === source.head.ref && current.base.ref === source.base.ref && (candidates.length === 1 || current.title === source.title);
   return stillTwin ? current : undefined;
 }
 
@@ -171,13 +174,21 @@ async function createPull(ctx: SyncContext, from: Side, source: Pull, head: stri
   const to = other(from);
   const fields = { title: source.title, body: copiedBody(ctx, from, source.user.login, source.body), head, base: source.base.ref, draft: source.draft };
   const pullsPath = `${repoPath(ctx, to)}/pulls`;
-  let created: { number: number };
+  // Our copy, whoever opened it: only a copy carries the marker that makes its body match.
+  const findCreated = async () => {
+    const open = await ctx.rest[to].request<Pull[]>("GET", `${pullsPath}?state=all&head=${encodeURIComponent(`${ctx.repo[to].owner}:${head}`)}`);
+    return open.find((pull) => pull.title === fields.title && pull.body === fields.body);
+  };
+  const author = source.user.id === undefined ? null : await ctx.authorRest(from, source.user.id, to);
+  let created: { number: number; user?: { login: string } } | null = null;
   try {
-    created = await createOnce<{ number: number }>(ctx, to, pullsPath, fields, async () => {
-      const owner = ctx.repo[to].owner;
-      const open = await ctx.rest[to].request<Pull[]>("GET", `${pullsPath}?state=all&head=${encodeURIComponent(`${owner}:${head}`)}`);
-      return open.find((pull) => pull.user.login === ctx.bot[to] && pull.title === fields.title && pull.body === fields.body);
-    });
+    if (author)
+      created = await createOnce(ctx, to, pullsPath, fields, findCreated, author).catch((error: unknown) => {
+        // The author may not be allowed to open pull requests there, or revoked us since; the app still can.
+        if (error instanceof RestError && [401, 403, 404].includes(error.status)) return null;
+        throw error;
+      });
+    created ??= await createOnce(ctx, to, pullsPath, fields, findCreated);
   } catch (error) {
     // 422 is the host refusing this pull request, such as "No commits between" for one merged before the first sync.
     if (!(error instanceof RestError) || error.status !== 422) throw error;
@@ -186,7 +197,8 @@ async function createPull(ctx: SyncContext, from: Side, source: Pull, head: stri
   }
   const ids = from === "ghost" ? { ghostId: String(source.number), githubId: String(created.number) } : { ghostId: String(created.number), githubId: String(source.number) };
   await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostRestId: null, ...ids, synced: pullFields(source) });
-  await done(ctx, to, "pull", `Copied ${SIDE_NAME[from]} pull request #${source.number} as #${created.number}`);
+  const openedBy = created.user && created.user.login !== ctx.bot[to] ? `, opened by @${created.user.login}` : "";
+  await done(ctx, to, "pull", `Copied ${SIDE_NAME[from]} pull request #${source.number} as #${created.number}${openedBy}`);
   if (source.labels?.length) await setLabels(ctx, to, created.number, source.labels);
   if (source.state === "closed") {
     await ctx.rest[to].request("PATCH", `${pullsPath}/${created.number}`, { state: "closed" });

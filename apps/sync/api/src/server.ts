@@ -5,7 +5,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createAppAuth } from "./apps.ts";
-import { createAuth, userToken as storedUserToken } from "./auth.ts";
+import { createAuth, linkedUserId, userToken as storedUserToken } from "./auth.ts";
 import type { Config } from "./config.ts";
 import type * as schema from "./db/schema.ts";
 import { fetchBoth, fetchPullHead, isAncestor, pushRef, type Remote } from "./git.ts";
@@ -87,6 +87,10 @@ export function createServer(config: Config, db: PostgresJsDatabase<typeof schem
       dir: mirrorOf(sync.id),
       bot: bots,
       appSlug: slugs,
+      authorRest: async (from, authorId, to) => {
+        const userId = await linkedUserId(db, from, String(authorId));
+        return userId ? userRest(userId, to) : null;
+      },
       store,
     };
   }

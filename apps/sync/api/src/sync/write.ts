@@ -1,4 +1,4 @@
-import { RestError } from "../rest.ts";
+import { type Rest, RestError } from "../rest.ts";
 import { readMarker } from "../format.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
 import type { Link, LinkKind } from "../store.ts";
@@ -13,11 +13,11 @@ export const isNotFound = (error: unknown) => error instanceof RestError && erro
 const mayHaveLanded = (error: unknown) => !(error instanceof RestError) || error.status >= 500;
 
 /**
- * POSTs a new item once. When the answer is lost after the host may have created it, `findCreated` looks for our copy before giving up, so a retry or the next reconcile does not create it twice.
+ * POSTs a new item once, through `rest` when given (a person's client) or else the app's. When the answer is lost after the host may have created it, `findCreated` looks for our copy before giving up, so a retry or the next reconcile does not create it twice.
  */
-export async function createOnce<T>(ctx: SyncContext, side: Side, path: string, payload: unknown, findCreated: () => Promise<T | undefined>): Promise<T> {
+export async function createOnce<T>(ctx: SyncContext, side: Side, path: string, payload: unknown, findCreated: () => Promise<T | undefined>, rest: Rest = ctx.rest[side]): Promise<T> {
   try {
-    return await ctx.rest[side].request<T>("POST", path, payload);
+    return await rest.request<T>("POST", path, payload);
   } catch (error) {
     if (!mayHaveLanded(error)) throw error;
     const found = await findCreated();

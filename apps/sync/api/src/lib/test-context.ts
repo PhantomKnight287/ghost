@@ -47,6 +47,7 @@ export function testContext(opts: { ghost?: Routes; github?: Routes; git?: FakeG
     dir: "/unused",
     bot: { ghost: "ghost-sync[bot]", github: "ghost-sync[bot]" },
     appSlug: { ghost: "ghost-sync", github: "ghost-sync" },
+    authorRest: async () => null,
     store,
     ghost,
     github,
