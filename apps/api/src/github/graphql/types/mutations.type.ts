@@ -9,8 +9,8 @@ import {
   RepositoryVisibility,
 } from '../enums.js';
 import { GitObjectID, URI } from '../scalars.js';
-import { IssueCommentNode } from './issue-comment.type.js';
 import { IssueNode } from './issue.type.js';
+import { IssueCommentNode } from './issue-comment.type.js';
 import { Assignable, Labelable } from './node.interface.js';
 import {
   PullRequestNode,
@@ -314,6 +314,63 @@ export class CreateRepositoryInput {
 
 @ObjectType('CreateRepositoryPayload')
 export class CreateRepositoryPayload {
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+
+  @Field(() => RepositoryNode, { nullable: true })
+  repository: RepositoryNode | null;
+}
+
+@InputType('UpdateRepositoryInput')
+export class UpdateRepositoryInput {
+  @Allow()
+  @Field(() => ID)
+  repositoryId: string;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  name?: string | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  description?: string | null;
+
+  // Accepted and ignored, as on createRepository: Ghost has no templates, homepages, wikis, projects, discussions, sponsorships or per-repository issue switch.
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  template?: boolean | null;
+
+  @Allow()
+  @Field(() => URI, { nullable: true })
+  homepageUrl?: string | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  hasWikiEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  hasIssuesEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  hasProjectsEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  hasDiscussionsEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  hasSponsorshipsEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+@ObjectType('UpdateRepositoryPayload')
+export class UpdateRepositoryPayload {
   @Field(() => String, { nullable: true })
   clientMutationId?: string | null;
 

@@ -3,11 +3,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
+import { orNull } from '../../../../lib/github/authorize.js';
 import {
   CouldNotResolveError,
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
-import { decodeNodeId } from '../../../../lib/github/node-id.js';
+import {
+  decodeNodeId,
+  decodeNodeIdAs,
+} from '../../../../lib/github/node-id.js';
 import { requireOauthAppAllowed } from '../../../../lib/organizations/oauth-app-access.js';
 import { RepositoriesService } from '../../../../resources/repositories/repositories.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
@@ -68,6 +72,41 @@ export class RepositoryMutationsService {
     return {
       clientMutationId: input.clientMutationId,
       repository: await this.repositoryNodes.load(created.id, viewer),
+    };
+  }
+
+  /** Only the name and description: Ghost keeps none of the other settings GitHub's input carries. */
+  async updateRepository(
+    input: M.UpdateRepositoryInput,
+    viewer: GithubViewer | null,
+  ) {
+    if (!viewer)
+      throw new GithubForbiddenError(
+        'You must be signed in to run UpdateRepository.',
+      );
+    const repository = await orNull(
+      this.repositoryNodes.load(
+        decodeNodeIdAs(input.repositoryId, 'Repository'),
+        viewer,
+      ),
+    );
+    if (!repository)
+      throw new CouldNotResolveError(
+        `Could not resolve to a node with the global id of '${input.repositoryId}'`,
+      );
+    requireWriteScope(viewer, 'updateRepository', repository);
+    const { id } = await this.repositories.updateRepository({
+      username: repository.ownerLogin,
+      slug: repository.slug,
+      requesterId: viewer.userId,
+      changes: {
+        name: input.name ?? undefined,
+        description: input.description ?? undefined,
+      },
+    });
+    return {
+      clientMutationId: input.clientMutationId,
+      repository: await this.repositoryNodes.load(id, viewer),
     };
   }
 
