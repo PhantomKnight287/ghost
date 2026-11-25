@@ -16,6 +16,8 @@ export type SyncContext = {
   /** `${slug}[bot]`, the login our own writes come back as. */
   bot: Record<Side, string>;
   appSlug: Record<Side, string>;
+  /** A client writing to `to` as the person whose account on `from` has id `authorId`, when they linked both sides; null sends the write through the app. */
+  authorRest: (from: Side, authorId: number, to: Side) => Promise<Rest | null>;
   store: Store;
 };
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { withMarker } from "../format.ts";
 import { fakeGit } from "../lib/fake-git.ts";
-import { writes } from "../lib/fake-rest.ts";
+import { fakeRest, writes } from "../lib/fake-rest.ts";
 import { testContext } from "../lib/test-context.ts";
 import { RestError } from "../rest.ts";
 import { syncPull } from "./pulls.ts";
@@ -246,6 +246,69 @@ describe("forks", () => {
     const ctx = testContext({ git: repos(), github: { "GET /repos/acme-gh/app/pulls/8": ghostPull({ number: 8, head: { ref: "feat", sha: "x", repo: null } }) } });
     await syncPull(ctx, "github", 8);
     expect(ctx.ghost.calls).toEqual([]);
+  });
+});
+
+describe("syncPull, opened as its author", () => {
+  const bobOnGithub = (post: unknown) => fakeRest({ "POST /repos/acme-gh/app/pulls": post });
+  /** Bob is Ghost user 5 and linked GitHub; nobody else linked anything. */
+  const asBob = (ctx: ReturnType<typeof testContext>, rest: ReturnType<typeof fakeRest>) => {
+    ctx.authorRest = async (from, authorId, to) => (from === "ghost" && authorId === 5 && to === "github" ? rest : null);
+  };
+  const unlinkedCtx = () => testContext({ git: repos(), ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ user: { login: "bob", id: 5 } }) }, github: { "POST /repos/acme-gh/app/pulls": { number: 8 } } });
+  const refusing = (status: number, message: string) => () => {
+    throw new RestError(status, { message });
+  };
+
+  test("an author who linked both sides opens the copy themselves, and the log says so", async () => {
+    const ctx = unlinkedCtx();
+    const bob = bobOnGithub({ number: 8, user: { login: "bob-gh" } });
+    asBob(ctx, bob);
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(bob)).toEqual([{ method: "POST", path: "/repos/acme-gh/app/pulls", body: { title: "Add sync", body: withMarker("Does things", "ghost", "bob"), head: "feat", base: "main", draft: false } }]);
+    expect(writes(ctx.github)).toEqual([]);
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8" });
+    expect(ctx.store.activity.map((a) => a.summary)).toContain("Copied Ghost pull request #3 as #8, opened by @bob-gh");
+  });
+
+  test("an author GitHub refuses (403) gets the copy opened by the app instead", async () => {
+    const ctx = unlinkedCtx();
+    asBob(ctx, bobOnGithub(refusing(403, "Resource not accessible by integration")));
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github).map((call) => `${call.method} ${call.path}`)).toEqual(["POST /repos/acme-gh/app/pulls"]);
+    expect(ctx.store.activity.map((a) => a.summary)).toContain("Copied Ghost pull request #3 as #8");
+  });
+
+  test("a pull request GitHub refuses outright (422) is not tried again by the app", async () => {
+    const ctx = unlinkedCtx();
+    asBob(ctx, bobOnGithub(refusing(422, "No commits between main and feat")));
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)).toEqual([]);
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toBeNull();
+  });
+
+  test("a lost answer finds the copy the author opened, which pairing passes over as ours", async () => {
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ user: { login: "bob", id: 5 } }) },
+      github: { "GET /repos/acme-gh/app/pulls?state=all&head=acme-gh%3Afeat": [githubPull({ user: { login: "bob-gh" } })] },
+    });
+    asBob(ctx, bobOnGithub(refusing(504, "Gateway Timeout")));
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)).toEqual([]);
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8", pairedAt: null });
+  });
+
+  test("a copy opened by its author is recognised by its marker and never copied back", async () => {
+    const ctx = testContext({ git: repos(), github: { "GET /repos/acme-gh/app/pulls/8": githubPull({ user: { login: "bob-gh", id: 9 } }) } });
+    await syncPull(ctx, "github", 8);
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect(ctx.git.pushes).toEqual([]);
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "github", "8")).toBeNull();
   });
 });
 

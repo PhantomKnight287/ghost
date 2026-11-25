@@ -59,6 +59,15 @@ export function createAuth(db: Database, config: Config) {
 
 export type Auth = ReturnType<typeof createAuth>;
 
+/** The Ghost Sync user who linked the account with id `accountId` on `side`, if anyone did. */
+export async function linkedUserId(db: Database, side: Side, accountId: string): Promise<string | null> {
+  const [linked] = await db
+    .select({ userId: schema.account.userId })
+    .from(schema.account)
+    .where(and(eq(schema.account.providerId, side), eq(schema.account.accountId, accountId)));
+  return linked?.userId ?? null;
+}
+
 /** The user's own token for `side`, refreshed when expired; null when that side is not linked or the refresh fails. */
 export async function userToken(auth: Auth, db: Database, userId: string, side: Side): Promise<string | null> {
   const [linked] = await db

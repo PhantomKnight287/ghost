@@ -57,6 +57,7 @@ export async function startWorld(file: string) {
   const github = createFakeHost({ side: "github", origin: "http://github.test", root, slug: SLUGS.github, webhookSecret: "whsec_github", installationId: 22 });
   const hosts = { ghost, github };
   const linked = { ghost: true, github: true };
+  const people = new Map<string, Record<Side, string>>([[OWNER, LOGINS]]);
 
   const config = loadConfig({
     SYNC_DATABASE_URL: databaseUrl ?? "",
@@ -96,7 +97,10 @@ export async function startWorld(file: string) {
       github: { api: github.origin, graphql: `${github.origin}/graphql`, git: `file://${root}/github` },
     },
     currentUser: async (c) => (c.req.header("x-test-user") ? { id: c.req.header("x-test-user") ?? "" } : null),
-    userToken: async (userId, side) => (userId === OWNER && linked[side] ? hosts[side].userToken(LOGINS[side]) : null),
+    userToken: async (userId, side) => {
+      const logins = people.get(userId);
+      return logins && (userId !== OWNER || linked[side]) ? hosts[side].userToken(logins[side]) : null;
+    },
   });
 
   /** Calls the sync API as the owner. */
@@ -131,7 +135,14 @@ export async function startWorld(file: string) {
     return created.body.id;
   }
 
-  return { ghost, github, hosts, server, store: server.store, call, settle, pair, linked, root };
+  /** Signs `userId` in to Ghost Sync with both sides linked, as `logins`, the way the web's sign-in and GitHub link would. */
+  async function link(userId: string, logins: Record<Side, string>) {
+    await db.insert(schema.user).values({ id: userId, name: logins.ghost, email: `${logins.ghost}@example.com` });
+    await db.insert(schema.account).values((["ghost", "github"] as const).map((side) => ({ id: `${userId}-${side}`, userId, providerId: side, accountId: String(hosts[side].userId(logins[side])) })));
+    people.set(userId, logins);
+  }
+
+  return { ghost, github, hosts, server, store: server.store, call, settle, pair, linked, link, root };
 }
 
 export type World = Awaited<ReturnType<typeof startWorld>>;
