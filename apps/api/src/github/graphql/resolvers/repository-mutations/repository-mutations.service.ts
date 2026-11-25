@@ -3,21 +3,18 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
-import { orNull } from '../../../../lib/github/authorize.js';
 import {
   CouldNotResolveError,
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
-import {
-  decodeNodeId,
-  decodeNodeIdAs,
-} from '../../../../lib/github/node-id.js';
+import { decodeNodeId } from '../../../../lib/github/node-id.js';
 import { requireOauthAppAllowed } from '../../../../lib/organizations/oauth-app-access.js';
 import { RepositoriesService } from '../../../../resources/repositories/repositories.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { requireWriteScope } from '../../../auth/require-scopes.js';
 import { RepositoryVisibility } from '../../enums.js';
 import * as M from '../../types/mutations.type.js';
+import { IssueMutationsService } from '../issue-mutations/issue-mutations.service.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
 @Injectable()
@@ -26,6 +23,7 @@ export class RepositoryMutationsService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly repositories: RepositoriesService,
     private readonly repositoryNodes: RepositoryNodesService,
+    private readonly issueMutations: IssueMutationsService,
   ) {}
 
   async createRepository(
@@ -84,16 +82,10 @@ export class RepositoryMutationsService {
       throw new GithubForbiddenError(
         'You must be signed in to run UpdateRepository.',
       );
-    const repository = await orNull(
-      this.repositoryNodes.load(
-        decodeNodeIdAs(input.repositoryId, 'Repository'),
-        viewer,
-      ),
+    const repository = await this.issueMutations.repositoryFor(
+      input.repositoryId,
+      viewer,
     );
-    if (!repository)
-      throw new CouldNotResolveError(
-        `Could not resolve to a node with the global id of '${input.repositoryId}'`,
-      );
     requireWriteScope(viewer, 'updateRepository', repository);
     const { id } = await this.repositories.updateRepository({
       username: repository.ownerLogin,
