@@ -9,7 +9,9 @@ describe('parseIssueSearch', () => {
         'repo:ada/tools is:issue is:open label:bug label:"help wanted" author:ada assignee:bob crash on start',
       ),
     ).toEqual({
-      repo: { owner: 'ada', name: 'tools' },
+      repos: [{ owner: 'ada', name: 'tools' }],
+      owners: [],
+      visibility: null,
       state: 'open',
       isPullRequest: false,
       author: 'ada',
@@ -66,6 +68,29 @@ describe('parseIssueSearch', () => {
       state: 'all',
       isPullRequest: null,
       text: '',
+    });
+  });
+
+  it('reads the repositories, owners and visibility gh search writes, any of which may repeat', () => {
+    expect(
+      parseIssueSearch(
+        'build repo:ada/tools repo:bob/site repo:broken user:ada org:acme is:private type:issue',
+      ),
+    ).toMatchObject({
+      repos: [
+        { owner: 'ada', name: 'tools' },
+        { owner: 'bob', name: 'site' },
+      ],
+      owners: ['ada', 'acme'],
+      visibility: 'private',
+      isPullRequest: false,
+      text: 'build',
+    });
+    expect(parseIssueSearch('is:public crash')).toMatchObject({
+      repos: [],
+      owners: [],
+      visibility: 'public',
+      text: 'crash',
     });
   });
 });

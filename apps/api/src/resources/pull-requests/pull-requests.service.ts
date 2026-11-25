@@ -53,10 +53,8 @@ import { IssuesService } from '../issues/issues.service.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
-  acceptedCollaboration,
-  organizationMembership,
   ownerNameOf,
-  readableBy,
+  readableRepositoryIds,
   type Repository,
   type RepositoryOperation,
 } from '../../lib/repositories/access/repository-access.js';
@@ -373,18 +371,7 @@ export class PullRequestsService {
         exists(this.pendingReviewRequests(requesterId)),
         inArray(
           schema.pullRequest.baseRepositoryId,
-          this.db
-            .select({ id: schema.repository.id })
-            .from(schema.repository)
-            .leftJoin(
-              schema.repositoryCollaborator,
-              acceptedCollaboration(schema.repository.id, viewer),
-            )
-            .leftJoin(
-              schema.member,
-              organizationMembership(schema.repository.organizationId, viewer),
-            )
-            .where(readableBy(viewer)),
+          readableRepositoryIds(this.db, viewer),
         ),
       ),
     );

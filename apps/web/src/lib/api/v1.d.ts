@@ -3856,6 +3856,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/search/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues and pull requests across every repository the viewer can read */
+        get: operations["SearchIssuesController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/pulls/comments": {
         parameters: {
             query?: never;
@@ -6719,6 +6736,7 @@ export interface components {
         };
         IssueDTO: {
             id: string;
+            repositoryId: string;
             /** @description Per repository, and what the URL carries. */
             number: number;
             title: string;
@@ -6757,6 +6775,7 @@ export interface components {
         };
         IssueDetailDTO: {
             id: string;
+            repositoryId: string;
             /** @description Per repository, and what the URL carries. */
             number: number;
             title: string;
@@ -8025,6 +8044,12 @@ export interface components {
         };
         GithubAssigneesDTO: {
             assignees: string[];
+        };
+        GithubSearchIssuesDTO: {
+            total_count: number;
+            /** @description Always false: Ghost never cuts a search short. */
+            incomplete_results: boolean;
+            items: components["schemas"]["GithubIssueDTO"][];
         };
         GithubLinkDTO: {
             href: string;
@@ -18825,6 +18850,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    SearchIssuesController_search: {
+        parameters: {
+            query: {
+                /** @description GitHub issue search syntax: words, and qualifiers such as `repo:`, `user:`, `org:`, `is:pr`, `label:` and `author:`. */
+                q: string;
+                sort?: "comments" | "reactions" | "reactions-+1" | "reactions--1" | "reactions-smile" | "reactions-thinking_face" | "reactions-heart" | "reactions-tada" | "interactions" | "created" | "updated";
+                order?: "asc" | "desc";
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubSearchIssuesDTO"];
+                };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
             default: {

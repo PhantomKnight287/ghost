@@ -15,9 +15,10 @@ import {
   ne,
   not,
   or,
+  type SQL,
   sql,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
@@ -47,6 +48,7 @@ import {
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import {
   ownerNameOf,
+  readableRepositoryIds,
   type Repository,
   type RepositoryOperation,
   repositoryFullNameOf,
@@ -80,8 +82,8 @@ export type IssueListOptions = {
   reviewRequested?: ReviewRequested;
 };
 
-const NO_ISSUES = {
-  issues: [],
+const NO_ROWS = {
+  rows: [] as Issue[],
   total: 0,
   openCount: 0,
   closedCount: 0,
@@ -286,7 +288,72 @@ export class IssuesService {
       repo,
       requesterId,
     });
+    const { rows, ...counts } = await this.listIssues(
+      (column) => eq(column, repository.id),
+      query,
+      options,
+    );
+    return {
+      ...counts,
+      issues: await this.expandIssues(
+        rows,
+        requesterId,
+        () => repository.viewerRole,
+      ),
+    };
+  }
 
+  async searchIssues(
+    {
+      requesterId,
+      repositories,
+      query,
+    }: {
+      requesterId?: string;
+      /** A condition over `repository` joined with its owning `user` and `organization`. */
+      repositories: SQL | undefined;
+      query: GetIssuesQueryDTO;
+    },
+    options: IssueListOptions = {},
+  ) {
+    const readable = readableRepositoryIds(
+      this.db,
+      requesterId ? { userId: requesterId } : null,
+      repositories,
+    );
+    const { rows, ...counts } = await this.listIssues(
+      (column) => inArray(column, readable),
+      query,
+      options,
+    );
+    const roles = new Map(
+      await Promise.all(
+        [...new Set(rows.map((row) => row.repositoryId))].map(
+          async (repositoryId) =>
+            [
+              repositoryId,
+              (await this.access.authorizeById({ repositoryId, requesterId }))
+                .viewerRole,
+            ] as const,
+        ),
+      ),
+    );
+    return {
+      ...counts,
+      issues: await this.expandIssues(
+        rows,
+        requesterId,
+        (repositoryId) => roles.get(repositoryId) ?? null,
+      ),
+    };
+  }
+
+  /** `inRepositories` takes the column holding a repository id, so one scope narrows both the issues and the labels they are filtered by. */
+  private async listIssues(
+    inRepositories: (repositoryId: PgColumn) => SQL | undefined,
+    query: GetIssuesQueryDTO,
+    options: IssueListOptions,
+  ) {
     const state = query.state ?? 'open';
     const sort = query.sort ?? 'created';
     const list = keyset({
@@ -312,33 +379,33 @@ export class IssuesService {
         .filter(Boolean),
     );
     const labelFilterIds = await this.labelIdsForFilter(
-      repository.id,
+      inRepositories,
       labelNames,
     );
     if (labelNames.length > 0 && labelFilterIds === null) {
-      return NO_ISSUES;
+      return NO_ROWS;
     }
 
     const authorId = query.author
       ? await this.users.findUserId(query.author)
       : undefined;
     if (query.author && !authorId) {
-      return NO_ISSUES;
+      return NO_ROWS;
     }
     const assigneeId = query.assignee
       ? await this.users.findUserId(query.assignee)
       : undefined;
     if (query.assignee && !assigneeId) {
-      return NO_ISSUES;
+      return NO_ROWS;
     }
 
     // Label (AND) and assignee filters resolve to id sets first so the main query stays a single indexed scan plus `inArray`.
     const labelIssueIds: string[] | undefined =
       labelFilterIds && labelFilterIds.length > 0
-        ? await this.issueIdsWithAllLabels(labelFilterIds)
+        ? await this.issueIdsWithAllLabels(labelFilterIds, labelNames.length)
         : undefined;
     if (labelIssueIds && labelIssueIds.length === 0) {
-      return NO_ISSUES;
+      return NO_ROWS;
     }
     const assigneeRows = assigneeId
       ? await this.db
@@ -350,7 +417,7 @@ export class IssuesService {
       ? assigneeRows.map((row) => row.issueId)
       : undefined;
     if (assigneeFilterIds && assigneeFilterIds.length === 0) {
-      return NO_ISSUES;
+      return NO_ROWS;
     }
 
     const search = query.q?.trim();
@@ -431,7 +498,7 @@ export class IssuesService {
       : undefined;
     const baseClause = (forState: 'open' | 'closed' | 'all') =>
       and(
-        eq(schema.issue.repositoryId, repository.id),
+        inRepositories(schema.issue.repositoryId),
         pullRequest
           ? exists(pullRequest)
           : options.includePullRequests
@@ -480,7 +547,7 @@ export class IssuesService {
     ]);
 
     return {
-      issues: await this.expandIssues(page, requesterId, repository.viewerRole),
+      rows: page,
       total: totalRow?.total ?? 0,
       openCount: openRow?.total ?? 0,
       closedCount: closedRow?.total ?? 0,
@@ -1340,7 +1407,7 @@ export class IssuesService {
     const [issue] = await this.expandIssues(
       [issueRow],
       requesterId,
-      viewerRole,
+      () => viewerRole,
     );
     return issue;
   }
@@ -1348,7 +1415,7 @@ export class IssuesService {
   private async expandIssues(
     rows: Issue[],
     requesterId: string | undefined,
-    viewerRole: Role | null,
+    viewerRoleIn: (repositoryId: string) => Role | null,
   ) {
     if (rows.length === 0) return [];
     const ids = rows.map((row) => row.id);
@@ -1426,6 +1493,7 @@ export class IssuesService {
 
     return rows.map((issueRow) => ({
       id: issueRow.id,
+      repositoryId: issueRow.repositoryId,
       number: issueRow.number,
       title: issueRow.title,
       body: issueRow.body,
@@ -1442,7 +1510,11 @@ export class IssuesService {
       closedAt: issueRow.closedAt?.toISOString() ?? null,
       createdAt: issueRow.createdAt.toISOString(),
       updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditThread(issueRow.authorId, requesterId, viewerRole),
+      viewerCanEdit: canEditThread(
+        issueRow.authorId,
+        requesterId,
+        viewerRoleIn(issueRow.repositoryId),
+      ),
     }));
   }
 
@@ -1466,13 +1538,16 @@ export class IssuesService {
     });
   }
 
-  private labelsNamed(repositoryId: string, names: string[]) {
+  private labelsNamed(
+    inRepositories: (repositoryId: PgColumn) => SQL | undefined,
+    names: string[],
+  ) {
     return this.db
       .select(labelColumns)
       .from(schema.label)
       .where(
         and(
-          eq(schema.label.repositoryId, repositoryId),
+          inRepositories(schema.label.repositoryId),
           inArray(
             sql`lower(${schema.label.name})`,
             names.map((name) => name.toLowerCase()),
@@ -1483,34 +1558,38 @@ export class IssuesService {
 
   private async resolveLabels(repositoryId: string, names: string[]) {
     if (names.length === 0) return [];
-    const rows = await this.labelsNamed(repositoryId, names);
+    const rows = await this.labelsNamed(
+      (column) => eq(column, repositoryId),
+      names,
+    );
     const found = new Set(rows.map((row) => row.name.toLowerCase()));
     const missing = names.find((name) => !found.has(name.toLowerCase()));
     if (missing) throw new LabelNotFoundError(missing);
     return rows;
   }
 
-  /** Ids of the labels named, or null when one does not exist, so the filter matches nothing. */
-  private async labelIdsForFilter(repositoryId: string, names: string[]) {
+  /** Ids of the labels named in any of the repositories, or null when a name is in none of them, so the filter matches nothing. */
+  private async labelIdsForFilter(
+    inRepositories: (repositoryId: PgColumn) => SQL | undefined,
+    names: string[],
+  ) {
     if (names.length === 0) return [];
-    const rows = await this.labelsNamed(repositoryId, names);
-    if (rows.length !== new Set(names.map((name) => name.toLowerCase())).size)
+    const rows = await this.labelsNamed(inRepositories, names);
+    const wanted = new Set(names.map((name) => name.toLowerCase()));
+    if (new Set(rows.map((row) => row.name.toLowerCase())).size !== wanted.size)
       return null;
     return rows.map((row) => row.id);
   }
 
-  private async issueIdsWithAllLabels(labelIds: string[]) {
+  /** Issues carrying a label of each of `nameCount` names; across repositories one name may be several labels, so names are counted rather than labels. */
+  private async issueIdsWithAllLabels(labelIds: string[], nameCount: number) {
     const rows = await this.db
-      .select({
-        issueId: schema.issueLabel.issueId,
-        matched: sql<number>`count(distinct ${schema.issueLabel.labelId})`,
-      })
+      .select({ issueId: schema.issueLabel.issueId })
       .from(schema.issueLabel)
+      .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
       .where(inArray(schema.issueLabel.labelId, labelIds))
       .groupBy(schema.issueLabel.issueId)
-      .having(
-        sql`count(distinct ${schema.issueLabel.labelId}) = ${labelIds.length}`,
-      );
+      .having(sql`count(distinct lower(${schema.label.name})) = ${nameCount}`);
     return rows.map((row) => row.issueId);
   }
 

@@ -7,7 +7,6 @@ import {
   exists,
   isNotNull,
   isNull,
-  not,
   or,
   type SQL,
   sql,
@@ -35,11 +34,8 @@ import {
   toCommitRest,
   toRepositoryRest,
 } from '../../../lib/github/rest.js';
-import { hasScope } from '../../../lib/github/scopes.js';
-import {
-  oauthAppBlockedIn,
-  requireOauthAppAllowed,
-} from '../../../lib/organizations/oauth-app-access.js';
+import { tokenReaches } from '../../../lib/github/token-reach.js';
+import { requireOauthAppAllowed } from '../../../lib/organizations/oauth-app-access.js';
 import {
   acceptedCollaboration,
   type Affiliation,
@@ -476,25 +472,7 @@ export class GithubReposService {
         schema.member,
         organizationMembership(schema.repository.organizationId, actor),
       )
-      .where(
-        and(
-          where,
-          viewer && !hasScope(viewer.scopes, 'repo')
-            ? eq(schema.repository.visibility, 'public')
-            : undefined,
-          viewer?.oauthClientId
-            ? or(
-                isNull(schema.repository.organizationId),
-                not(
-                  oauthAppBlockedIn(
-                    schema.repository.organizationId,
-                    viewer.oauthClientId,
-                  ),
-                ),
-              )
-            : undefined,
-        ),
-      )
+      .where(and(where, tokenReaches(viewer)))
       .orderBy(
         sql`${key} ${direction} nulls last`,
         sql`${schema.repository.id} ${direction}`,
